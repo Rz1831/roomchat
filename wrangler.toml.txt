@@ -1,0 +1,17 @@
+name = "roomchat"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Public Turnstile "site key" (optional, safe to be visible)
+TURNSTILE_SITEKEY = ""
+# Username of the owner account. Its password is the secret OWNER_PASSWORD (set in the Cloudflare dashboard)
+OWNER_USERNAME = "Roozer0"
+
+[[durable_objects.bindings]]
+name = "CHAT"
+class_name = "ChatRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom"]

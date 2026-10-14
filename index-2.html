@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050805">
+<title>Chatroom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050805;
+    --panel: #0b100b;
+    --raise: #121a12;
+    --line: #1c2b1c;
+    --ink: #d8f3d8;
+    --muted: #7a947a;
+    --green: #2ee66b;
+    --on-green: #031205;
+    --danger: #ff6b6b;
+    --purple: #b794ff;
+    --purple-bg: #2a1650;
+    --purple-line: #6b46c1;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Space Grotesk", "Vazirmatn", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    display: flex;
+    justify-content: center;
+  }
+  html[lang="fa"] body { font-family: "Vazirmatn", "Space Grotesk", system-ui, sans-serif; line-height: 1.8; }
+  input, button { font: inherit; }
+  :focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+  .app {
+    width: 100%; max-width: 640px; height: 100dvh;
+    display: flex; flex-direction: column;
+    background: var(--panel);
+    border-inline: 1px solid var(--line);
+  }
+
+  /* header */
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 14px; border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+  .actions { display: flex; align-items: center; gap: 8px; }
+  .pill {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--raise); color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 5px 12px; border-radius: 999px;
+    font-size: 14px; cursor: pointer;
+  }
+  .pill[aria-expanded="true"] { border-color: var(--green); }
+  .icon-btn {
+    display: grid; place-items: center;
+    width: 34px; height: 34px; padding: 0;
+    background: var(--raise); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 50%;
+    cursor: pointer;
+  }
+  .icon-btn:hover { border-color: var(--green); color: var(--green); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.on { background: var(--green); }
+
+  /* owner tag */
+  .tag {
+    display: inline-block;
+    background: var(--purple-bg); color: var(--purple);
+    border: 1px solid var(--purple-line);
+    border-radius: 6px; padding: 0 7px;
+    font-size: 12px; font-weight: 700; line-height: 1.6;
+    vertical-align: middle;
+  }
+
+  /* users panel */
+  #users {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 10px 14px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  #users .hint { width: 100%; font-size: 13px; color: var(--muted); }
+  .chipwrap { display: flex; align-items: center; gap: 4px; }
+  .chip {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--raise); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 3px 12px; font-size: 14px; cursor: pointer;
+  }
+  .chip:hover { border-color: var(--green); }
+  .chip.me { cursor: default; color: var(--muted); }
+  .chip.me:hover { border-color: var(--line); }
+  .mini {
+    background: var(--raise); color: var(--muted);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 0 8px; font-size: 12px; cursor: pointer;
+  }
+  .mini:hover { color: var(--ink); border-color: var(--muted); }
+  .mini.danger:hover { color: var(--danger); border-color: var(--danger); }
+
+  /* tabs */
+  #tabs {
+    display: flex; gap: 4px; overflow-x: auto;
+    padding: 6px 14px 0; border-bottom: 1px solid var(--line);
+    scrollbar-width: none;
+  }
+  #tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: none; display: flex; align-items: center; gap: 6px;
+    background: none; color: var(--muted);
+    border: 0; border-bottom: 2px solid transparent;
+    padding: 4px 10px 6px; font-size: 15px; cursor: pointer;
+  }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); font-weight: 700; }
+  .badge {
+    background: var(--green); color: var(--on-green);
+    font-size: 12px; font-weight: 700;
+    min-width: 20px; height: 20px; line-height: 20px;
+    text-align: center; border-radius: 10px; padding: 0 5px;
+  }
+  .x { color: var(--muted); font-size: 17px; line-height: 1; padding: 0 2px; }
+  .x:hover { color: var(--ink); }
+
+  #banner {
+    padding: 6px 14px; font-size: 13px; color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  #banner.warn { color: var(--danger); }
+
+  /* messages */
+  #list {
+    flex: 1; overflow-y: auto; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .empty { margin: auto; color: var(--muted); text-align: center; }
+  .msg { max-width: 82%; display: flex; flex-direction: column; gap: 2px; align-self: flex-start; }
+  .msg.mine { align-self: flex-end; }
+  .whorow { display: flex; align-items: center; gap: 6px; padding-inline: 4px; }
+  .who {
+    background: none; border: 0; padding: 0;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px;
+  }
+  .who:hover { text-decoration-color: currentColor; }
+  .bubble {
+    background: var(--raise); border: 1px solid var(--line);
+    padding: 8px 12px; border-radius: 14px; border-end-start-radius: 4px;
+    overflow-wrap: anywhere; white-space: pre-wrap;
+  }
+  .mine .bubble {
+    background: var(--green); border-color: var(--green); color: var(--on-green);
+    border-end-start-radius: 14px; border-end-end-radius: 4px;
+  }
+  .msg.fromowner:not(.mine) .bubble { border-color: var(--purple-line); }
+  .timerow { display: flex; align-items: center; gap: 8px; padding-inline: 4px; }
+  .time { font-size: 12px; color: var(--muted); }
+  .sys { align-self: center; font-size: 13px; color: var(--danger); text-align: center; }
+
+  /* composer */
+  form.composer {
+    display: flex; gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+  }
+  input[type="text"], input[type="password"] {
+    flex: 1; min-width: 0; width: 100%;
+    padding: 10px 14px; border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink);
+  }
+  input::placeholder { color: var(--muted); }
+  .btn {
+    padding: 10px 18px; border-radius: 12px; border: 0;
+    background: var(--green); color: var(--on-green);
+    font-weight: 700; cursor: pointer;
+  }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.ghost { background: var(--raise); color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+  .btn.ghost:hover { border-color: var(--green); }
+  .btn.warn { background: var(--raise); color: var(--danger); border: 1px solid var(--line); font-weight: 500; }
+  .btn.warn:hover { border-color: var(--danger); }
+
+  /* overlays */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  #auth { background: var(--bg); }
+  #settings { background: rgba(0, 0, 0, .72); }
+  .card {
+    width: 100%; max-width: 380px; max-height: calc(100dvh - 32px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; padding: 22px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .card h2 { margin: 0; font-size: 21px; }
+  .card h3 { margin: 0; font-size: 15px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  .err { color: var(--danger); font-size: 14px; min-height: 1.4em; }
+  .ok { color: var(--green); font-size: 14px; min-height: 1.4em; }
+  .row { display: flex; flex-direction: column; gap: 8px; }
+  .group { display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .label { font-size: 13px; color: var(--muted); }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .seg button {
+    flex: 1; padding: 8px; border: 0; cursor: pointer;
+    background: var(--raise); color: var(--ink);
+  }
+  .seg button[aria-pressed="true"] { background: var(--green); color: var(--on-green); font-weight: 700; }
+  .linkbtn {
+    align-self: center; background: none; border: 0; color: var(--muted);
+    font-size: 14px; cursor: pointer; text-decoration: underline;
+  }
+  #ts { display: flex; justify-content: center; min-height: 65px; }
+  .banrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .msg { animation: pop .18s ease-out; }
+    @keyframes pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  }
+</style>
+<script>window.CHAT_CONFIG = { sitekey: "__TURNSTILE_SITEKEY__" };</script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad" async defer></script>
+</head>
+<body>
+
+<!-- Sign in / Create account -->
+<div class="overlay" id="auth" hidden>
+  <form class="card" id="authForm" autocomplete="on">
+    <div class="seg" role="tablist">
+      <button type="button" id="tabLogin" data-mode="login" data-i18n="tabLogin"></button>
+      <button type="button" id="tabRegister" data-mode="register" data-i18n="tabRegister"></button>
+    </div>
+    <h2 id="authTitle"></h2>
+    <p id="authSub"></p>
+    <input id="authUser" name="username" type="text" maxlength="20" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" data-i18n-ph="userPh" required>
+    <input id="authPass" name="password" type="password" maxlength="128" autocomplete="current-password" data-i18n-ph="passPh" required>
+    <input id="authPass2" name="password2" type="password" maxlength="128" autocomplete="new-password" data-i18n-ph="pass2Ph">
+    <div id="ts" hidden></div>
+    <div class="err" id="authErr" role="alert"></div>
+    <button class="btn" id="authBtn" type="submit"></button>
+    <button class="linkbtn" type="button" id="authLang"></button>
+  </form>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="settings" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <h2 id="settingsTitle" data-i18n="settings"></h2>
+
+    <div class="row">
+      <div class="label" data-i18n="language"></div>
+      <div class="seg">
+        <button type="button" data-lang="en">English</button>
+        <button type="button" data-lang="fa">فارسی</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="label" data-i18n="account"></div>
+      <div><span data-i18n="signedInAs"></span> <strong id="myName"></strong> <span id="myTag"></span></div>
+      <form class="row" id="pwForm" autocomplete="on">
+        <input class="vh" type="text" id="pwUser" name="username" autocomplete="username" tabindex="-1" aria-hidden="true">
+        <h3 data-i18n="changePassTitle"></h3>
+        <input id="pwOld" type="password" maxlength="128" autocomplete="current-password" data-i18n-ph="curPassPh" required>
+        <input id="pwNew" type="password" maxlength="128" autocomplete="new-password" data-i18n-ph="newPassPh" required>
+        <button class="btn ghost" type="submit" data-i18n="changePassBtn"></button>
+        <div class="err" id="pwErr" role="alert"></div>
+        <div class="ok" id="pwOk"></div>
+      </form>
+      <button class="btn ghost" type="button" id="signOut" data-i18n="signOut"></button>
+    </div>
+
+    <div class="group">
+      <button class="btn ghost" type="button" id="clearDMs" data-i18n="clearDM"></button>
+      <div class="label" id="clearNote"></div>
+    </div>
+
+    <div class="group" id="ownerBox" hidden>
+      <h3><span data-i18n="ownerTools"></span> <span class="tag" id="ownerBoxTag"></span></h3>
+      <button class="btn warn" type="button" id="clearChat" data-i18n="clearChat"></button>
+      <div class="label" data-i18n="bannedUsers"></div>
+      <div id="banList"></div>
+    </div>
+
+    <button class="btn" type="button" id="closeSettings" data-i18n="close"></button>
+  </div>
+</div>
+
+<!-- App -->
+<div class="app">
+  <header>
+    <h1 data-i18n="title"></h1>
+    <div class="actions">
+      <button class="pill" id="usersBtn" aria-expanded="false" aria-controls="users">
+        <span class="dot" id="statusDot"></span><span id="usersLabel"></span>
+      </button>
+      <button class="icon-btn" id="settingsBtn" data-i18n-title="settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="users" hidden></div>
+  <div id="tabs" role="tablist"></div>
+  <div id="banner" hidden></div>
+  <div id="list" aria-live="polite"></div>
+
+  <form class="composer" id="composer">
+    <input id="msgInput" type="text" maxlength="500" autocomplete="off" data-i18n-ph="placeholder">
+    <button class="btn" id="sendBtn" type="submit" data-i18n="send" disabled></button>
+  </form>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PUBLIC = "__public__";
+
+  var I18N = {
+    en: {
+      title: "Chatroom",
+      connecting: "Connecting…",
+      reconnecting: "Disconnected. Reconnecting…",
+      online: "{n} online",
+      pub: "Public",
+      usersHint: "Tap a name to message them privately",
+      you: "(you)",
+      placeholder: "Write a message…",
+      send: "Send",
+      empty: "No messages yet. Say something.",
+      dmEmpty: "Send the first message to {name}.",
+      dmBanner: "Private chat with {name}. Delivered live and saved only on your device.",
+      dmOffline: "{name} is offline. Message not delivered.",
+      dmTo: "Message {name}",
+      closeChat: "Close chat",
+      tabLogin: "Sign in",
+      tabRegister: "Create account",
+      authTitleLogin: "Welcome back",
+      authSubLogin: "Sign in to your account. Your browser can remember you.",
+      authTitleReg: "Create your account",
+      authSubReg: "Pick a username and a password of 8 or more characters.",
+      userPh: "Username",
+      passPh: "Password",
+      pass2Ph: "Repeat password",
+      btnLogin: "Sign in",
+      btnRegister: "Create account",
+      otherLang: "فارسی",
+      invalid_credentials: "Wrong username or password.",
+      username_taken: "That username is taken.",
+      username_reserved: "That username is reserved.",
+      invalid_username: "Username: 3 to 20 letters, numbers, _ . or -",
+      weak_password: "Password must be 8 to 128 characters.",
+      mismatch: "The two passwords do not match.",
+      banned: "This account was banned by the owner.",
+      too_many_attempts: "Too many attempts. Wait a few minutes.",
+      rate_limited: "Too many sign-ups from your network. Try later.",
+      captcha_failed: "Security check failed. Try again.",
+      captcha_required: "Complete the security check first.",
+      generic: "Something went wrong. Try again.",
+      sessionExpired: "Session ended. Please sign in again.",
+      kicked: "The owner removed you from the room. Try again in a few minutes.",
+      settings: "Settings",
+      language: "Language",
+      account: "Account",
+      signedInAs: "Signed in as",
+      changePassTitle: "Change password",
+      curPassPh: "Current password",
+      newPassPh: "New password (8+ characters)",
+      changePassBtn: "Change password",
+      passChanged: "Password changed. Other devices were signed out.",
+      signOut: "Sign out",
+      clearDM: "Clear private chats on this device",
+      cleared: "Private chats cleared.",
+      close: "Done",
+      ownerTag: "owner",
+      ownerTools: "Owner tools",
+      clearChat: "Clear public chat",
+      clearChatConfirm: "Delete all public messages for everyone?",
+      bannedUsers: "Banned users",
+      noBanned: "No banned users.",
+      unban: "Unban",
+      kick: "Kick",
+      ban: "Ban",
+      del: "Delete",
+      kickConfirm: "Remove {name} from the room for 5 minutes?",
+      banConfirm: "Ban {name}? They will be signed out and cannot log in."
+    },
+    fa: {
+      title: "چت‌روم",
+      connecting: "در حال اتصال…",
+      reconnecting: "اتصال قطع شد. در حال اتصال دوباره…",
+      online: "{n} نفر آنلاین",
+      pub: "عمومی",
+      usersHint: "روی اسم هر کسی بزن تا بهش پیام خصوصی بدی",
+      you: "(تو)",
+      placeholder: "پیامت رو بنویس…",
+      send: "ارسال",
+      empty: "هنوز پیامی نیست. اولین نفر باش.",
+      dmEmpty: "اولین پیام رو برای {name} بفرست.",
+      dmBanner: "گفتگوی خصوصی با {name}. لحظه‌ای ارسال می‌شه و فقط روی دستگاه خودت ذخیره می‌شه.",
+      dmOffline: "{name} آفلاینه. پیام ارسال نشد.",
+      dmTo: "پیام به {name}",
+      closeChat: "بستن گفتگو",
+      tabLogin: "ورود",
+      tabRegister: "ثبت نام",
+      authTitleLogin: "خوش برگشتی",
+      authSubLogin: "وارد حسابت شو. مرورگرت می‌تونه یادش بمونه.",
+      authTitleReg: "ساخت حساب",
+      authSubReg: "یه نام کاربری و یه رمز عبور حداقل ۸ حرفی انتخاب کن.",
+      userPh: "نام کاربری",
+      passPh: "رمز عبور",
+      pass2Ph: "تکرار رمز عبور",
+      btnLogin: "ورود",
+      btnRegister: "ساخت حساب",
+      otherLang: "English",
+      invalid_credentials: "نام کاربری یا رمز عبور اشتباهه.",
+      username_taken: "این نام کاربری قبلاً گرفته شده.",
+      username_reserved: "این نام کاربری رزرو شده.",
+      invalid_username: "نام کاربری: ۳ تا ۲۰ حرف، عدد، _ . یا -",
+      weak_password: "رمز عبور باید ۸ تا ۱۲۸ حرف باشه.",
+      mismatch: "دو تا رمز عبور یکی نیستن.",
+      banned: "این حساب توسط مالک مسدود شده.",
+      too_many_attempts: "تلاش زیاد. چند دقیقه صبر کن.",
+      rate_limited: "ثبت نام زیاد از شبکه‌ت. بعداً امتحان کن.",
+      captcha_failed: "بررسی امنیتی ناموفق بود. دوباره امتحان کن.",
+      captcha_required: "اول بررسی امنیتی رو کامل کن.",
+      generic: "مشکلی پیش اومد. دوباره امتحان کن.",
+      sessionExpired: "نشست تموم شد. دوباره وارد شو.",
+      kicked: "مالک تو رو از اتاق بیرون کرد. چند دقیقه دیگه دوباره امتحان کن.",
+      settings: "تنظیمات",
+      language: "زبان",
+      account: "حساب کاربری",
+      signedInAs: "واردشده با نام",
+      changePassTitle: "تغییر رمز عبور",
+      curPassPh: "رمز عبور فعلی",
+      newPassPh: "رمز عبور جدید (حداقل ۸ حرف)",
+      changePassBtn: "تغییر رمز عبور",
+      passChanged: "رمز عبور عوض شد. بقیه دستگاه‌ها خارج شدن.",
+      signOut: "خروج از حساب",
+      clearDM: "پاک کردن پیوی‌ها از این دستگاه",
+      cleared: "پیوی‌ها پاک شدن.",
+      close: "تمام",
+      ownerTag: "مالک",
+      ownerTools: "ابزار مالک",
+      clearChat: "پاک کردن چت عمومی",
+      clearChatConfirm: "همه پیام‌های چت عمومی برای همه پاک بشه؟",
+      bannedUsers: "کاربران مسدود",
+      noBanned: "کاربر مسدودی نیست.",
+      unban: "رفع مسدودی",
+      kick: "اخراج",
+      ban: "مسدود",
+      del: "حذف",
+      kickConfirm: "{name} برای ۵ دقیقه از اتاق بیرون بره؟",
+      banConfirm: "{name} مسدود بشه؟ از حساب خارج می‌شه و دیگه نمی‌تونه وارد بشه."
+    }
+  };
+
+  var SITEKEY = (window.CHAT_CONFIG && window.CHAT_CONFIG.sitekey) || "";
+  if (SITEKEY.indexOf("__") === 0) SITEKEY = "";
+  var tsToken = "", tsWidget = null;
+
+  var lang = localStorage.getItem("chat-lang") === "fa" ? "fa" : "en";
+  var me = null;             // { name, role } when signed in
+  var authMode = "login";
+  var wasSignedIn = false;
+
+  var ws = null;
+  var connected = false;
+  var joinedOnce = false;
+  var halted = false;        // stop auto-reconnect (kicked)
+  var retry = 0;
+  var reconnectTimer = null;
+
+  var publicMsgs = [];
+  var threads = {};
+  var openTabs = [];
+  var unread = {};
+  var current = PUBLIC;
+  var onlineUsers = [];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var list = $("list"), tabs = $("tabs"), usersBox = $("users"), banner = $("banner");
+
+  /* ---------- helpers ---------- */
+  function t(key, vars) {
+    var s = I18N[lang][key] || key;
+    if (vars) for (var k in vars) s = s.split("{" + k + "}").join(vars[k]);
+    return s;
+  }
+  function locale() { return lang === "fa" ? "fa-IR" : "en-US"; }
+  function num(n) { return n.toLocaleString(locale()); }
+  function fmtTime(ts) {
+    return new Date(ts).toLocaleTimeString(locale(), { hour: "numeric", minute: "2-digit" });
+  }
+  function hue(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+  function nameColor(n) { return "hsl(" + (90 + (hue(n) % 90)) + " 75% 62%)"; }
+  function same(a, b) { return String(a).toLowerCase() === String(b).toLowerCase(); }
+  function isOwner() { return !!me && me.role === "owner"; }
+  function roleOf(name) {
+    for (var i = 0; i < onlineUsers.length; i++) if (same(onlineUsers[i].name, name)) return onlineUsers[i].role;
+    return "user";
+  }
+  function tagEl(role) {
+    if (role !== "owner") return null;
+    var s = document.createElement("span");
+    s.className = "tag";
+    s.textContent = t("ownerTag");
+    return s;
+  }
+  function errText(code) { return t(I18N[lang][code] ? code : "generic"); }
+
+  /* ---------- private chats stored on this device ---------- */
+  function dmKey() { return "chat-dms:" + (me ? me.name.toLowerCase() : ""); }
+  function loadThreads() {
+    threads = {}; openTabs = [];
+    try {
+      var d = JSON.parse(localStorage.getItem(dmKey()) || "null");
+      if (d && d.threads) { threads = d.threads; openTabs = d.tabs || Object.keys(threads); }
+    } catch (e) {}
+  }
+  function saveThreads() {
+    if (!me) return;
+    var clean = {};
+    Object.keys(threads).forEach(function (u) {
+      var msgs = threads[u].filter(function (m) { return !m.system; }).slice(-100);
+      if (msgs.length) clean[u] = msgs;
+    });
+    try { localStorage.setItem(dmKey(), JSON.stringify({ threads: clean, tabs: openTabs })); } catch (e) {}
+  }
+
+  /* ---------- language + static texts ---------- */
+  function applyAuthMode() {
+    var reg = authMode === "register";
+    $("tabLogin").setAttribute("aria-pressed", String(!reg));
+    $("tabRegister").setAttribute("aria-pressed", String(reg));
+    $("authTitle").textContent = t(reg ? "authTitleReg" : "authTitleLogin");
+    $("authSub").textContent = t(reg ? "authSubReg" : "authSubLogin");
+    $("authBtn").textContent = t(reg ? "btnRegister" : "btnLogin");
+    $("authPass2").hidden = !reg;
+    $("authPass2").required = reg;
+    $("authPass").setAttribute("autocomplete", reg ? "new-password" : "current-password");
+  }
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === "fa" ? "rtl" : "ltr";
+    document.title = t("title");
+    document.querySelectorAll("[data-i18n]").forEach(function (el) { el.textContent = t(el.getAttribute("data-i18n")); });
+    document.querySelectorAll("[data-i18n-ph]").forEach(function (el) { el.placeholder = t(el.getAttribute("data-i18n-ph")); });
+    document.querySelectorAll("[data-i18n-title]").forEach(function (el) {
+      var v = t(el.getAttribute("data-i18n-title"));
+      el.title = v; el.setAttribute("aria-label", v);
+    });
+    document.querySelectorAll("[data-lang]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === lang));
+    });
+    $("authLang").textContent = t("otherLang");
+    $("ownerBoxTag").textContent = t("ownerTag");
+    $("clearNote").textContent = "";
+    applyAuthMode();
+    renderAccount();
+    renderAll();
+  }
+  function setLang(l) {
+    lang = l;
+    localStorage.setItem("chat-lang", l);
+    applyLang();
+  }
+
+  /* ---------- rendering ---------- */
+  function renderAccount() {
+    $("myName").textContent = me ? me.name : "";
+    $("pwUser").value = me ? me.name : "";
+    var tg = $("myTag");
+    tg.innerHTML = "";
+    var el = me ? tagEl(me.role) : null;
+    if (el) tg.appendChild(el);
+    $("ownerBox").hidden = !isOwner();
+  }
+
+  function renderStatus() {
+    $("statusDot").className = "dot" + (connected ? " on" : "");
+    $("sendBtn").disabled = !connected;
+    if (!me) { $("usersLabel").textContent = t("connecting"); return; }
+    if (connected) $("usersLabel").textContent = t("online", { n: num(onlineUsers.length) });
+    else $("usersLabel").textContent = joinedOnce ? t("reconnecting") : t("connecting");
+  }
+
+  function renderUsers() {
+    usersBox.innerHTML = "";
+    var hint = document.createElement("div");
+    hint.className = "hint";
+    hint.textContent = t("usersHint");
+    usersBox.appendChild(hint);
+    onlineUsers.forEach(function (u) {
+      var isMe = me && same(u.name, me.name);
+      var wrap = document.createElement("div");
+      wrap.className = "chipwrap";
+
+      var c = document.createElement("button");
+      c.type = "button";
+      c.className = "chip" + (isMe ? " me" : "");
+      var d = document.createElement("span"); d.className = "dot on";
+      var s = document.createElement("span"); s.textContent = isMe ? u.name + " " + t("you") : u.name;
+      c.appendChild(d); c.appendChild(s);
+      var tg = tagEl(u.role); if (tg) c.appendChild(tg);
+      if (!isMe) c.addEventListener("click", function () { openDM(u.name); });
+      wrap.appendChild(c);
+
+      if (isOwner() && !isMe && u.role !== "owner") {
+        var k = document.createElement("button");
+        k.type = "button"; k.className = "mini"; k.textContent = t("kick");
+        k.addEventListener("click", function () {
+          if (confirm(t("kickConfirm", { name: u.name }))) mod("kick", { name: u.name });
+        });
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "mini danger"; b.textContent = t("ban");
+        b.addEventListener("click", function () {
+          if (confirm(t("banConfirm", { name: u.name }))) mod("ban", { name: u.name });
+        });
+        wrap.appendChild(k); wrap.appendChild(b);
+      }
+      usersBox.appendChild(wrap);
+    });
+  }
+
+  function renderTabs() {
+    tabs.innerHTML = "";
+    [PUBLIC].concat(openTabs).forEach(function (k) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "tab" + (k === current ? " active" : "");
+      b.setAttribute("role", "tab");
+      var label = document.createElement("span");
+      label.textContent = k === PUBLIC ? t("pub") : k;
+      b.appendChild(label);
+      if (k !== PUBLIC) { var tg = tagEl(roleOf(k)); if (tg) b.appendChild(tg); }
+      if (unread[k]) {
+        var bd = document.createElement("span");
+        bd.className = "badge";
+        bd.textContent = num(unread[k]);
+        b.appendChild(bd);
+      }
+      b.addEventListener("click", function () { switchTo(k); });
+      if (k !== PUBLIC) {
+        var x = document.createElement("span");
+        x.className = "x";
+        x.textContent = "×";
+        x.title = t("closeChat");
+        x.addEventListener("click", function (e) { e.stopPropagation(); closeTab(k); });
+        b.appendChild(x);
+      }
+      tabs.appendChild(b);
+    });
+  }
+
+  function setBanner(text, warn) {
+    banner.hidden = !text;
+    banner.textContent = text || "";
+    banner.className = warn ? "warn" : "";
+  }
+
+  function renderList(forceScroll) {
+    var stick = forceScroll || (list.scrollHeight - list.scrollTop - list.clientHeight < 80);
+    var isPublic = current === PUBLIC;
+    var msgs = isPublic ? publicMsgs : (threads[current] || []);
+
+    if (halted) setBanner(t("kicked"), true);
+    else if (isPublic) setBanner("");
+    else setBanner(t("dmBanner", { name: current }));
+
+    list.innerHTML = "";
+    if (!msgs.length) {
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = isPublic ? t("empty") : t("dmEmpty", { name: current });
+      list.appendChild(e);
+      return;
+    }
+    msgs.forEach(function (m) {
+      if (m.system) {
+        var s = document.createElement("div");
+        s.className = "sys";
+        s.textContent = t("dmOffline", { name: m.name });
+        list.appendChild(s);
+        return;
+      }
+      var mine = me && same(m.from, me.name);
+      var wrap = document.createElement("div");
+      wrap.className = "msg" + (mine ? " mine" : "") + (m.role === "owner" ? " fromowner" : "");
+
+      if (!mine && isPublic) {
+        var row = document.createElement("div");
+        row.className = "whorow";
+        var who = document.createElement("button");
+        who.type = "button";
+        who.className = "who";
+        who.textContent = m.from;
+        who.title = t("dmTo", { name: m.from });
+        who.style.color = m.role === "owner" ? "var(--purple)" : nameColor(m.from);
+        who.addEventListener("click", function () { openDM(m.from); });
+        row.appendChild(who);
+        var tg = tagEl(m.role); if (tg) row.appendChild(tg);
+        wrap.appendChild(row);
+      }
+
+      var bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = m.text;
+      wrap.appendChild(bubble);
+
+      var trow = document.createElement("div");
+      trow.className = "timerow";
+      var time = document.createElement("span");
+      time.className = "time";
+      time.textContent = fmtTime(m.ts);
+      trow.appendChild(time);
+      if (isOwner() && isPublic && m.id) {
+        var del = document.createElement("button");
+        del.type = "button"; del.className = "mini danger"; del.textContent = t("del");
+        del.addEventListener("click", function () { mod("delete", { id: m.id }); });
+        trow.appendChild(del);
+      }
+      wrap.appendChild(trow);
+      list.appendChild(wrap);
+    });
+    if (stick) list.scrollTop = list.scrollHeight;
+  }
+
+  function renderBanList(names) {
+    var box = $("banList");
+    box.innerHTML = "";
+    if (!names.length) {
+      var p = document.createElement("div");
+      p.className = "label";
+      p.textContent = t("noBanned");
+      box.appendChild(p);
+      return;
+    }
+    names.forEach(function (n) {
+      var row = document.createElement("div");
+      row.className = "banrow";
+      var s = document.createElement("span"); s.textContent = n;
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "mini"; b.textContent = t("unban");
+      b.addEventListener("click", function () { mod("unban", { name: n }); });
+      row.appendChild(s); row.appendChild(b);
+      box.appendChild(row);
+    });
+  }
+
+  function renderAll() {
+    renderStatus(); renderUsers(); renderTabs(); renderList(true);
+  }
+
+  /* ---------- navigation ---------- */
+  function switchTo(k) {
+    current = k;
+    unread[k] = 0;
+    renderTabs();
+    renderList(true);
+  }
+  function openDM(user) {
+    if (me && same(user, me.name)) return;
+    if (!threads[user]) threads[user] = [];
+    if (openTabs.indexOf(user) === -1) openTabs.push(user);
+    saveThreads();
+    usersBox.hidden = true;
+    $("usersBtn").setAttribute("aria-expanded", "false");
+    switchTo(user);
+    $("msgInput").focus();
+  }
+  function closeTab(user) {
+    openTabs = openTabs.filter(function (u) { return u !== user; });
+    if (current === user) current = PUBLIC;
+    saveThreads();
+    renderTabs();
+    renderList(true);
+  }
+
+  /* ---------- Turnstile ---------- */
+  function renderTurnstile() {
+    $("ts").hidden = !SITEKEY;
+    if (!SITEKEY || !window.turnstile) return;
+    tsToken = "";
+    if (tsWidget !== null) { window.turnstile.reset(tsWidget); return; }
+    tsWidget = window.turnstile.render("#ts", {
+      sitekey: SITEKEY,
+      theme: "dark",
+      callback: function (tok) { tsToken = tok; },
+      "expired-callback": function () { tsToken = ""; },
+      "error-callback": function () { tsToken = ""; }
+    });
+  }
+  window.onTurnstileLoad = function () { if (!$("auth").hidden) renderTurnstile(); };
+
+  /* ---------- auth screen ---------- */
+  function showAuth(err) {
+    me = null;
+    connected = false;
+    $("auth").hidden = false;
+    $("authErr").textContent = err || "";
+    $("authPass").value = "";
+    $("authPass2").value = "";
+    renderTurnstile();
+    renderAccount();
+    renderAll();
+    $("authUser").focus();
+  }
+
+  function api(path, body) {
+    return fetch(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body || {})
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false }; }).then(function (d) { d.status = r.status; return d; });
+    });
+  }
+
+  function onAuthed(user) {
+    me = user;
+    wasSignedIn = true;
+    halted = false;
+    loadThreads();
+    $("auth").hidden = true;
+    $("authPass").value = "";
+    $("authPass2").value = "";
+    renderAccount();
+    connect();
+  }
+
+  $("authForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var u = $("authUser").value.trim();
+    var p = $("authPass").value;
+    $("authErr").textContent = "";
+    if (!u || !p) return;
+    if (authMode === "register" && p !== $("authPass2").value) { $("authErr").textContent = t("mismatch"); return; }
+    if (SITEKEY && !tsToken) { $("authErr").textContent = t("captcha_required"); return; }
+
+    $("authBtn").disabled = true;
+    api("/api/" + authMode, { username: u, password: p, token: tsToken })
+      .then(function (d) {
+        $("authBtn").disabled = false;
+        if (d.ok) { onAuthed(d.user); }
+        else { $("authErr").textContent = errText(d.error); renderTurnstile(); }
+      })
+      .catch(function () {
+        $("authBtn").disabled = false;
+        $("authErr").textContent = t("generic");
+        renderTurnstile();
+      });
+  });
+
+  document.querySelectorAll("[data-mode]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      authMode = b.getAttribute("data-mode");
+      $("authErr").textContent = "";
+      applyAuthMode();
+    });
+  });
+  $("authLang").addEventListener("click", function () { setLang(lang === "en" ? "fa" : "en"); });
+
+  /* ---------- networking ---------- */
+  function startConnect() {
+    clearTimeout(reconnectTimer);
+    fetch("/api/me", { cache: "no-store" })
+      .then(function (r) {
+        if (r.status === 401) return null;
+        return r.json();
+      })
+      .then(function (d) {
+        if (d && d.ok) {
+          me = d.user; wasSignedIn = true;
+          if (!Object.keys(threads).length && !openTabs.length) loadThreads();
+          renderAccount();
+          connect();
+        } else {
+          showAuth(wasSignedIn ? t("sessionExpired") : "");
+        }
+      })
+      .catch(function () {
+        retry++;
+        reconnectTimer = setTimeout(startConnect, Math.min(1000 * retry, 8000));
+      });
+  }
+
+  function connect() {
+    clearTimeout(reconnectTimer);
+    var proto = location.protocol === "https:" ? "wss://" : "ws://";
+    var sock = new WebSocket(proto + location.host + "/ws");
+    ws = sock;
+    renderStatus();
+
+    sock.onmessage = function (e) {
+      var d; try { d = JSON.parse(e.data); } catch (x) { return; }
+      handle(d);
+    };
+    sock.onclose = function () {
+      if (ws !== sock) return;
+      connected = false;
+      renderStatus();
+      if (halted || !me) return;
+      retry++;
+      reconnectTimer = setTimeout(startConnect, Math.min(1000 * retry, 8000));
+    };
+  }
+
+  function mod(action, extra) {
+    if (!ws || ws.readyState !== 1) return;
+    var o = { type: "mod", action: action };
+    for (var k in extra) o[k] = extra[k];
+    ws.send(JSON.stringify(o));
+  }
+
+  function fromServerMsg(m) {
+    return { id: m.id, from: m.name, role: m.role, text: m.text, ts: m.ts };
+  }
+
+  function handle(d) {
+    if (d.type === "joined") {
+      me = { name: d.name, role: d.role };
+      connected = true; joinedOnce = true; retry = 0;
+      publicMsgs = (d.history || []).map(fromServerMsg);
+      renderAccount();
+      renderAll();
+    } else if (d.type === "users") {
+      onlineUsers = d.users || [];
+      renderStatus(); renderUsers(); renderTabs();
+    } else if (d.type === "message") {
+      var m = fromServerMsg(d.message);
+      publicMsgs.push(m);
+      if (publicMsgs.length > 100) publicMsgs.shift();
+      var mineMsg = me && same(m.from, me.name);
+      if (current !== PUBLIC && !mineMsg) unread[PUBLIC] = (unread[PUBLIC] || 0) + 1;
+      if (current === PUBLIC) renderList(mineMsg); else renderTabs();
+    } else if (d.type === "deleted") {
+      publicMsgs = publicMsgs.filter(function (x) { return x.id !== d.id; });
+      if (current === PUBLIC) renderList(false);
+    } else if (d.type === "cleared") {
+      publicMsgs = [];
+      if (current === PUBLIC) renderList(true);
+    } else if (d.type === "dm") {
+      var other = same(d.from, me.name) ? d.to : d.from;
+      if (!threads[other]) threads[other] = [];
+      threads[other].push({ id: d.id, from: d.from, role: d.fromRole, text: d.text, ts: d.ts });
+      if (openTabs.indexOf(other) === -1) openTabs.push(other);
+      saveThreads();
+      if (current === other) renderList(same(d.from, me.name));
+      else { unread[other] = (unread[other] || 0) + 1; renderTabs(); }
+    } else if (d.type === "dm_failed") {
+      if (!threads[d.to]) threads[d.to] = [];
+      threads[d.to].push({ system: true, name: d.to });
+      if (current === d.to) renderList(true);
+    } else if (d.type === "kicked") {
+      halted = true;
+      connected = false;
+      renderStatus(); renderList(false);
+    } else if (d.type === "banned") {
+      wasSignedIn = false;
+      showAuth(t("banned"));
+    } else if (d.type === "mod_result") {
+      if (d.action === "banlist") renderBanList(d.names || []);
+      else if (d.action === "unban" || d.action === "ban") mod("banlist");
+    }
+  }
+
+  /* ---------- events ---------- */
+  $("composer").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var text = $("msgInput").value.trim();
+    if (!text || !connected || !ws || ws.readyState !== 1) return;
+    if (current === PUBLIC) ws.send(JSON.stringify({ type: "msg", text: text }));
+    else ws.send(JSON.stringify({ type: "dm", to: current, text: text }));
+    $("msgInput").value = "";
+    $("msgInput").focus();
+  });
+
+  $("usersBtn").addEventListener("click", function () {
+    var open = usersBox.hidden;
+    usersBox.hidden = !open;
+    this.setAttribute("aria-expanded", String(open));
+  });
+
+  function openSettings() {
+    renderAccount();
+    $("clearNote").textContent = "";
+    $("pwErr").textContent = ""; $("pwOk").textContent = "";
+    $("pwOld").value = ""; $("pwNew").value = "";
+    $("settings").hidden = false;
+    if (isOwner()) mod("banlist");
+  }
+  function closeSettings() { $("settings").hidden = true; }
+  $("settingsBtn").addEventListener("click", openSettings);
+  $("closeSettings").addEventListener("click", closeSettings);
+  $("settings").addEventListener("click", function (e) { if (e.target === this) closeSettings(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeSettings(); });
+
+  document.querySelectorAll("[data-lang]").forEach(function (b) {
+    b.addEventListener("click", function () { setLang(b.getAttribute("data-lang")); });
+  });
+
+  $("pwForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    $("pwErr").textContent = ""; $("pwOk").textContent = "";
+    api("/api/password", { oldPassword: $("pwOld").value, newPassword: $("pwNew").value })
+      .then(function (d) {
+        if (d.ok) { $("pwOk").textContent = t("passChanged"); $("pwOld").value = ""; $("pwNew").value = ""; }
+        else if (d.status === 401 && d.error === "unauthorized") { closeSettings(); showAuth(t("sessionExpired")); }
+        else $("pwErr").textContent = errText(d.error);
+      })
+      .catch(function () { $("pwErr").textContent = t("generic"); });
+  });
+
+  $("signOut").addEventListener("click", function () {
+    closeSettings();
+    api("/api/logout", {}).then(function () {
+      wasSignedIn = false;
+      if (ws) { var s = ws; ws = null; try { s.close(); } catch (x) {} }
+      threads = {}; openTabs = []; unread = {}; current = PUBLIC; publicMsgs = []; onlineUsers = [];
+      halted = false; joinedOnce = false;
+      authMode = "login"; applyAuthMode();
+      showAuth("");
+    });
+  });
+
+  $("clearDMs").addEventListener("click", function () {
+    threads = {}; openTabs = []; unread = {};
+    current = PUBLIC;
+    saveThreads();
+    renderTabs(); renderList(true);
+    $("clearNote").textContent = t("cleared");
+  });
+
+  $("clearChat").addEventListener("click", function () {
+    if (confirm(t("clearChatConfirm"))) mod("clear");
+  });
+
+  /* ---------- start ---------- */
+  applyLang();
+  startConnect();
+})();
+</script>
+</body>
+</html>
