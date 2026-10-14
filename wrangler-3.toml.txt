@@ -1,0 +1,15 @@
+name = "chatroom"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Public Turnstile "site key" (safe to be visible). Paste yours between the quotes.
+[vars]
+TURNSTILE_SITEKEY = ""
+
+[[durable_objects.bindings]]
+name = "CHAT"
+class_name = "ChatRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom"]

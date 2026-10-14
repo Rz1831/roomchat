@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050805">
+<title>Chatroom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Vazirmatn:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050805;
+    --panel: #0b100b;
+    --raise: #121a12;
+    --line: #1c2b1c;
+    --ink: #d8f3d8;
+    --muted: #7a947a;
+    --green: #2ee66b;
+    --on-green: #031205;
+    --danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Space Grotesk", "Vazirmatn", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    display: flex;
+    justify-content: center;
+  }
+  html[lang="fa"] body { font-family: "Vazirmatn", "Space Grotesk", system-ui, sans-serif; line-height: 1.8; }
+  input, button { font: inherit; }
+  :focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+  .app {
+    width: 100%;
+    max-width: 640px;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+    border-inline: 1px solid var(--line);
+  }
+
+  /* header */
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+  .actions { display: flex; align-items: center; gap: 8px; }
+  .pill {
+    display: flex; align-items: center; gap: 7px;
+    background: var(--raise); color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 5px 12px; border-radius: 999px;
+    font-size: 14px; cursor: pointer;
+  }
+  .pill[aria-expanded="true"] { border-color: var(--green); }
+  .icon-btn {
+    display: grid; place-items: center;
+    width: 34px; height: 34px;
+    background: var(--raise); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 50%;
+    cursor: pointer; padding: 0;
+  }
+  .icon-btn:hover { border-color: var(--green); color: var(--green); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.on { background: var(--green); }
+
+  /* users panel */
+  #users {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  #users .hint { width: 100%; font-size: 13px; color: var(--muted); }
+  .chip {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--raise); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 3px 12px; font-size: 14px; cursor: pointer;
+  }
+  .chip:hover { border-color: var(--green); }
+  .chip.me { cursor: default; color: var(--muted); }
+  .chip.me:hover { border-color: var(--line); }
+
+  /* tabs */
+  #tabs {
+    display: flex; gap: 4px; overflow-x: auto;
+    padding: 6px 14px 0;
+    border-bottom: 1px solid var(--line);
+    scrollbar-width: none;
+  }
+  #tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: none; display: flex; align-items: center; gap: 6px;
+    background: none; color: var(--muted);
+    border: 0; border-bottom: 2px solid transparent;
+    padding: 4px 10px 6px; font-size: 15px; cursor: pointer;
+  }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); font-weight: 700; }
+  .badge {
+    background: var(--green); color: var(--on-green);
+    font-size: 12px; font-weight: 700;
+    min-width: 20px; height: 20px; line-height: 20px;
+    text-align: center; border-radius: 10px; padding: 0 5px;
+  }
+  .x { color: var(--muted); font-size: 17px; line-height: 1; padding: 0 2px; }
+  .x:hover { color: var(--ink); }
+
+  #banner {
+    padding: 6px 14px; font-size: 13px; color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* messages */
+  #list {
+    flex: 1; overflow-y: auto;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .empty { margin: auto; color: var(--muted); text-align: center; }
+  .msg { max-width: 82%; display: flex; flex-direction: column; gap: 2px; align-self: flex-start; }
+  .msg.mine { align-self: flex-end; }
+  .who {
+    align-self: flex-start;
+    background: none; border: 0; padding: 0 4px;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 3px;
+  }
+  .who:hover { text-decoration-color: currentColor; }
+  .bubble {
+    background: var(--raise);
+    border: 1px solid var(--line);
+    padding: 8px 12px;
+    border-radius: 14px;
+    border-end-start-radius: 4px;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+  .mine .bubble {
+    background: var(--green); border-color: var(--green); color: var(--on-green);
+    border-end-start-radius: 14px;
+    border-end-end-radius: 4px;
+  }
+  .time { font-size: 12px; color: var(--muted); padding: 0 4px; }
+  .sys { align-self: center; font-size: 13px; color: var(--danger); text-align: center; }
+
+  /* composer */
+  form.composer {
+    display: flex; gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+  }
+  input[type="text"] {
+    flex: 1; min-width: 0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink);
+  }
+  input[type="text"]::placeholder { color: var(--muted); }
+  .btn {
+    padding: 10px 18px; border-radius: 12px; border: 0;
+    background: var(--green); color: var(--on-green);
+    font-weight: 700; cursor: pointer;
+  }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.ghost {
+    background: var(--raise); color: var(--ink);
+    border: 1px solid var(--line); font-weight: 500;
+  }
+  .btn.ghost:hover { border-color: var(--green); }
+
+  /* join screen + settings overlay */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #join { background: var(--bg); }
+  #settings { background: rgba(0, 0, 0, .7); }
+  .card {
+    width: 100%; max-width: 360px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .card h2 { margin: 0; font-size: 21px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; }
+  .err { color: var(--danger); font-size: 14px; min-height: 1.4em; }
+  .row { display: flex; flex-direction: column; gap: 6px; }
+  .label { font-size: 13px; color: var(--muted); }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .seg button {
+    flex: 1; padding: 8px; border: 0; cursor: pointer;
+    background: var(--raise); color: var(--ink);
+  }
+  .seg button[aria-pressed="true"] { background: var(--green); color: var(--on-green); font-weight: 700; }
+  .linkbtn {
+    align-self: center; background: none; border: 0; color: var(--muted);
+    font-size: 14px; cursor: pointer; text-decoration: underline;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .msg { animation: pop .18s ease-out; }
+    @keyframes pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  }
+  #ts { display: flex; justify-content: center; min-height: 65px; }
+</style>
+<script>window.CHAT_CONFIG = { sitekey: "__TURNSTILE_SITEKEY__" };</script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad" async defer></script>
+</head>
+<body>
+
+<!-- Join -->
+<div class="overlay" id="join" hidden>
+  <form class="card" id="joinForm">
+    <h2 data-i18n="joinTitle"></h2>
+    <p data-i18n="joinSub"></p>
+    <input id="nameInput" type="text" maxlength="20" autocomplete="off" data-i18n-ph="joinPh" required>
+    <div id="ts" hidden></div>
+    <div class="err" id="joinErr" role="alert"></div>
+    <button class="btn" type="submit" data-i18n="joinBtn"></button>
+    <button class="linkbtn" type="button" id="joinLang"></button>
+  </form>
+</div>
+
+<!-- Settings -->
+<div class="overlay" id="settings" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <h2 id="settingsTitle" data-i18n="settings"></h2>
+
+    <div class="row">
+      <div class="label" data-i18n="language"></div>
+      <div class="seg">
+        <button type="button" data-lang="en">English</button>
+        <button type="button" data-lang="fa">فارسی</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="label" data-i18n="nickname"></div>
+      <div id="myName"></div>
+      <button class="btn ghost" type="button" id="changeName" data-i18n="change"></button>
+    </div>
+
+    <div class="row">
+      <button class="btn ghost" type="button" id="clearDMs" data-i18n="clearDM"></button>
+      <div class="label" id="clearNote"></div>
+    </div>
+
+    <button class="btn" type="button" id="closeSettings" data-i18n="close"></button>
+  </div>
+</div>
+
+<!-- App -->
+<div class="app">
+  <header>
+    <h1 data-i18n="title"></h1>
+    <div class="actions">
+      <button class="pill" id="usersBtn" aria-expanded="false" aria-controls="users">
+        <span class="dot" id="statusDot"></span><span id="usersLabel"></span>
+      </button>
+      <button class="icon-btn" id="settingsBtn" data-i18n-title="settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div id="users" hidden></div>
+  <div id="tabs" role="tablist"></div>
+  <div id="banner" hidden></div>
+  <div id="list" aria-live="polite"></div>
+
+  <form class="composer" id="composer">
+    <input id="msgInput" type="text" maxlength="500" autocomplete="off" data-i18n-ph="placeholder">
+    <button class="btn" id="sendBtn" type="submit" data-i18n="send" disabled></button>
+  </form>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var PUBLIC = "__public__";
+
+  var I18N = {
+    en: {
+      title: "Chatroom",
+      connecting: "Connecting…",
+      reconnecting: "Disconnected. Reconnecting…",
+      online: "{n} online",
+      pub: "Public",
+      usersHint: "Tap a name to message them privately",
+      you: "(you)",
+      placeholder: "Write a message…",
+      send: "Send",
+      empty: "No messages yet. Say something.",
+      dmEmpty: "Send the first message to {name}.",
+      dmBanner: "Private chat with {name}. Delivered live and saved only on your device.",
+      dmOffline: "{name} is offline. Message not delivered.",
+      dmTo: "Message {name}",
+      closeChat: "Close chat",
+      joinTitle: "Join the chat",
+      joinSub: "Pick a nickname so others know who is talking.",
+      joinPh: "Nickname",
+      joinBtn: "Join",
+      nameTaken: "That nickname is in use right now. Try another.",
+      nameInvalid: "Enter a nickname.",
+      humanCheck: "Complete the security check first.",
+      verifyFail: "Security check failed. Try again.",
+      sessionExpired: "Session expired. Please verify again.",
+      settings: "Settings",
+      language: "Language",
+      nickname: "Nickname",
+      change: "Change nickname",
+      clearDM: "Clear private chats on this device",
+      cleared: "Private chats cleared.",
+      close: "Done",
+      otherLang: "فارسی"
+    },
+    fa: {
+      title: "چت‌روم",
+      connecting: "در حال اتصال…",
+      reconnecting: "اتصال قطع شد. در حال اتصال دوباره…",
+      online: "{n} نفر آنلاین",
+      pub: "عمومی",
+      usersHint: "روی اسم هر کسی بزن تا بهش پیام خصوصی بدی",
+      you: "(تو)",
+      placeholder: "پیامت رو بنویس…",
+      send: "ارسال",
+      empty: "هنوز پیامی نیست. اولین نفر باش.",
+      dmEmpty: "اولین پیام رو برای {name} بفرست.",
+      dmBanner: "گفتگوی خصوصی با {name}. لحظه‌ای ارسال می‌شه و فقط روی دستگاه خودت ذخیره می‌شه.",
+      dmOffline: "{name} آفلاینه. پیام ارسال نشد.",
+      dmTo: "پیام به {name}",
+      closeChat: "بستن گفتگو",
+      joinTitle: "ورود به چت",
+      joinSub: "یه اسم مستعار انتخاب کن تا بقیه بدونن کی حرف می‌زنه.",
+      joinPh: "اسم مستعار",
+      joinBtn: "ورود",
+      nameTaken: "این اسم همین الان استفاده می‌شه. یکی دیگه امتحان کن.",
+      nameInvalid: "یه اسم مستعار وارد کن.",
+      humanCheck: "اول بررسی امنیتی رو کامل کن.",
+      verifyFail: "بررسی امنیتی ناموفق بود. دوباره امتحان کن.",
+      sessionExpired: "نشست منقضی شد. دوباره تأیید کن.",
+      settings: "تنظیمات",
+      language: "زبان",
+      nickname: "اسم مستعار",
+      change: "تغییر اسم مستعار",
+      clearDM: "پاک کردن پیوی‌ها از این دستگاه",
+      cleared: "پیوی‌ها پاک شدن.",
+      close: "تمام",
+      otherLang: "English"
+    }
+  };
+
+  var SITEKEY = (window.CHAT_CONFIG && window.CHAT_CONFIG.sitekey) || "";
+  if (SITEKEY.indexOf("__") === 0) SITEKEY = "";
+  var hasSession = !SITEKEY;   // true when protection is off or already verified
+  var tsToken = "", tsWidget = null;
+
+  var lang = localStorage.getItem("chat-lang") === "fa" ? "fa" : "en";
+  var me = localStorage.getItem("chat-name") || "";
+
+  var ws = null;
+  var connected = false;     // socket joined and ready
+  var joinedOnce = false;
+  var retry = 0;
+  var reconnectTimer = null;
+
+  var publicMsgs = [];
+  var threads = {};          // user -> array of messages
+  var openTabs = [];         // users with a visible tab
+  var unread = {};
+  var current = PUBLIC;
+  var onlineUsers = [];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var list = $("list"), tabs = $("tabs"), usersBox = $("users"), banner = $("banner");
+
+  /* ---------- helpers ---------- */
+  function t(key, vars) {
+    var s = I18N[lang][key] || key;
+    if (vars) for (var k in vars) s = s.split("{" + k + "}").join(vars[k]);
+    return s;
+  }
+  function locale() { return lang === "fa" ? "fa-IR" : "en-US"; }
+  function num(n) { return n.toLocaleString(locale()); }
+  function fmtTime(ts) {
+    return new Date(ts).toLocaleTimeString(locale(), { hour: "numeric", minute: "2-digit" });
+  }
+  function hue(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
+  function nameColor(n) { return "hsl(" + (90 + (hue(n) % 90)) + " 75% 62%)"; }
+  function same(a, b) { return a.toLowerCase() === b.toLowerCase(); }
+
+  /* ---------- local storage for private chats ---------- */
+  function dmKey() { return "chat-dms:" + me.toLowerCase(); }
+  function loadThreads() {
+    threads = {}; openTabs = [];
+    try {
+      var d = JSON.parse(localStorage.getItem(dmKey()) || "null");
+      if (d && d.threads) { threads = d.threads; openTabs = d.tabs || Object.keys(threads); }
+    } catch (e) {}
+  }
+  function saveThreads() {
+    var clean = {};
+    Object.keys(threads).forEach(function (u) {
+      var msgs = threads[u].filter(function (m) { return !m.system; }).slice(-100);
+      if (msgs.length) clean[u] = msgs;
+    });
+    try { localStorage.setItem(dmKey(), JSON.stringify({ threads: clean, tabs: openTabs })); } catch (e) {}
+  }
+
+  /* ---------- language ---------- */
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === "fa" ? "rtl" : "ltr";
+    document.title = t("title");
+    document.querySelectorAll("[data-i18n]").forEach(function (el) { el.textContent = t(el.getAttribute("data-i18n")); });
+    document.querySelectorAll("[data-i18n-ph]").forEach(function (el) { el.placeholder = t(el.getAttribute("data-i18n-ph")); });
+    document.querySelectorAll("[data-i18n-title]").forEach(function (el) {
+      var v = t(el.getAttribute("data-i18n-title"));
+      el.title = v; el.setAttribute("aria-label", v);
+    });
+    document.querySelectorAll("[data-lang]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === lang));
+    });
+    $("joinLang").textContent = t("otherLang");
+    $("clearNote").textContent = "";
+    $("myName").textContent = me;
+    renderAll();
+  }
+  function setLang(l) {
+    lang = l;
+    localStorage.setItem("chat-lang", l);
+    applyLang();
+  }
+
+  /* ---------- rendering ---------- */
+  function renderStatus() {
+    $("statusDot").className = "dot" + (connected ? " on" : "");
+    $("sendBtn").disabled = !connected;
+    if (!me) { $("usersLabel").textContent = ""; return; }
+    if (connected) $("usersLabel").textContent = t("online", { n: num(onlineUsers.length) });
+    else $("usersLabel").textContent = joinedOnce ? t("reconnecting") : t("connecting");
+  }
+
+  function renderUsers() {
+    usersBox.innerHTML = "";
+    var hint = document.createElement("div");
+    hint.className = "hint";
+    hint.textContent = t("usersHint");
+    usersBox.appendChild(hint);
+    onlineUsers.forEach(function (u) {
+      var isMe = same(u, me);
+      var c = document.createElement("button");
+      c.type = "button";
+      c.className = "chip" + (isMe ? " me" : "");
+      var d = document.createElement("span"); d.className = "dot on";
+      var s = document.createElement("span"); s.textContent = isMe ? u + " " + t("you") : u;
+      c.appendChild(d); c.appendChild(s);
+      if (!isMe) c.addEventListener("click", function () { openDM(u); });
+      usersBox.appendChild(c);
+    });
+  }
+
+  function renderTabs() {
+    tabs.innerHTML = "";
+    [PUBLIC].concat(openTabs).forEach(function (k) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "tab" + (k === current ? " active" : "");
+      b.setAttribute("role", "tab");
+      var label = document.createElement("span");
+      label.textContent = k === PUBLIC ? t("pub") : k;
+      b.appendChild(label);
+      if (unread[k]) {
+        var bd = document.createElement("span");
+        bd.className = "badge";
+        bd.textContent = num(unread[k]);
+        b.appendChild(bd);
+      }
+      b.addEventListener("click", function () { switchTo(k); });
+      if (k !== PUBLIC) {
+        var x = document.createElement("span");
+        x.className = "x";
+        x.textContent = "×";
+        x.title = t("closeChat");
+        x.addEventListener("click", function (e) { e.stopPropagation(); closeTab(k); });
+        b.appendChild(x);
+      }
+      tabs.appendChild(b);
+    });
+  }
+
+  function renderList(forceScroll) {
+    var stick = forceScroll || (list.scrollHeight - list.scrollTop - list.clientHeight < 80);
+    var isPublic = current === PUBLIC;
+    var msgs = isPublic ? publicMsgs : (threads[current] || []);
+
+    if (isPublic) banner.hidden = true;
+    else { banner.hidden = false; banner.textContent = t("dmBanner", { name: current }); }
+
+    list.innerHTML = "";
+    if (!msgs.length) {
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = isPublic ? t("empty") : t("dmEmpty", { name: current });
+      list.appendChild(e);
+      return;
+    }
+    msgs.forEach(function (m) {
+      if (m.system) {
+        var s = document.createElement("div");
+        s.className = "sys";
+        s.textContent = t("dmOffline", { name: m.name });
+        list.appendChild(s);
+        return;
+      }
+      var mine = same(m.from, me);
+      var wrap = document.createElement("div");
+      wrap.className = "msg" + (mine ? " mine" : "");
+      if (!mine && isPublic) {
+        var who = document.createElement("button");
+        who.type = "button";
+        who.className = "who";
+        who.textContent = m.from;
+        who.title = t("dmTo", { name: m.from });
+        who.style.color = nameColor(m.from);
+        who.addEventListener("click", function () { openDM(m.from); });
+        wrap.appendChild(who);
+      }
+      var bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = m.text;
+      var time = document.createElement("div");
+      time.className = "time";
+      time.textContent = fmtTime(m.ts);
+      wrap.appendChild(bubble);
+      wrap.appendChild(time);
+      list.appendChild(wrap);
+    });
+    if (stick) list.scrollTop = list.scrollHeight;
+  }
+
+  function renderAll() {
+    renderStatus(); renderUsers(); renderTabs(); renderList(true);
+  }
+
+  /* ---------- navigation ---------- */
+  function switchTo(k) {
+    current = k;
+    unread[k] = 0;
+    renderTabs();
+    renderList(true);
+  }
+  function openDM(user) {
+    if (same(user, me)) return;
+    if (!threads[user]) threads[user] = [];
+    if (openTabs.indexOf(user) === -1) openTabs.push(user);
+    saveThreads();
+    usersBox.hidden = true;
+    $("usersBtn").setAttribute("aria-expanded", "false");
+    switchTo(user);
+    $("msgInput").focus();
+  }
+  function closeTab(user) {
+    openTabs = openTabs.filter(function (u) { return u !== user; });
+    if (current === user) current = PUBLIC;
+    saveThreads();
+    renderTabs();
+    renderList(true);
+  }
+
+  /* ---------- networking ---------- */
+  function renderTurnstile() {
+    var need = !!SITEKEY && !hasSession;
+    $("ts").hidden = !need;
+    if (!need || !window.turnstile) return;
+    tsToken = "";
+    if (tsWidget !== null) { window.turnstile.reset(tsWidget); return; }
+    tsWidget = window.turnstile.render("#ts", {
+      sitekey: SITEKEY,
+      theme: "dark",
+      callback: function (tok) { tsToken = tok; },
+      "expired-callback": function () { tsToken = ""; },
+      "error-callback": function () { tsToken = ""; }
+    });
+  }
+  window.onTurnstileLoad = function () { if (!$("join").hidden) renderTurnstile(); };
+
+  function startConnect() {
+    if (!SITEKEY) { connect(); return; }
+    fetch("/session", { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) { hasSession = true; connect(); }
+        else { hasSession = false; showJoin(t("sessionExpired"), me); }
+      })
+      .catch(function () {
+        retry++;
+        reconnectTimer = setTimeout(startConnect, Math.min(1000 * retry, 8000));
+      });
+  }
+
+  function showJoin(err, prefill) {
+    $("join").hidden = false;
+    renderTurnstile();
+    $("joinErr").textContent = err || "";
+    $("nameInput").value = prefill || me || "";
+    $("nameInput").focus();
+  }
+
+  function connect() {
+    clearTimeout(reconnectTimer);
+    var proto = location.protocol === "https:" ? "wss://" : "ws://";
+    var sock = new WebSocket(proto + location.host + "/ws");
+    ws = sock;
+    renderStatus();
+
+    sock.onopen = function () { sock.send(JSON.stringify({ type: "join", name: me })); };
+    sock.onmessage = function (e) {
+      var d; try { d = JSON.parse(e.data); } catch (x) { return; }
+      handle(d);
+    };
+    sock.onclose = function () {
+      if (ws !== sock) return;
+      connected = false;
+      renderStatus();
+      if (!me) return;
+      retry++;
+      reconnectTimer = setTimeout(startConnect, Math.min(1000 * retry, 8000));
+    };
+  }
+
+  function handle(d) {
+    if (d.type === "joined") {
+      me = d.name;
+      localStorage.setItem("chat-name", me);
+      connected = true; joinedOnce = true; retry = 0;
+      publicMsgs = d.history || [];
+      if (!openTabs.length && !Object.keys(threads).length) loadThreads();
+      $("join").hidden = true;
+      $("myName").textContent = me;
+      renderAll();
+    } else if (d.type === "users") {
+      onlineUsers = d.users || [];
+      renderStatus(); renderUsers();
+    } else if (d.type === "message") {
+      var m = d.message;
+      publicMsgs.push({ id: m.id, from: m.name, text: m.text, ts: m.ts });
+      if (publicMsgs.length > 100) publicMsgs.shift();
+      if (current !== PUBLIC && !same(m.name, me)) unread[PUBLIC] = (unread[PUBLIC] || 0) + 1;
+      if (current === PUBLIC) renderList(same(m.name, me)); else renderTabs();
+    } else if (d.type === "dm") {
+      var other = same(d.from, me) ? d.to : d.from;
+      if (!threads[other]) threads[other] = [];
+      threads[other].push({ id: d.id, from: d.from, text: d.text, ts: d.ts });
+      if (openTabs.indexOf(other) === -1) openTabs.push(other);
+      saveThreads();
+      if (current === other) renderList(same(d.from, me));
+      else { unread[other] = (unread[other] || 0) + 1; renderTabs(); }
+    } else if (d.type === "dm_failed") {
+      if (!threads[d.to]) threads[d.to] = [];
+      threads[d.to].push({ system: true, name: d.to });
+      if (current === d.to) renderList(true);
+    } else if (d.type === "error") {
+      if (joinedOnce) { try { ws.close(); } catch (x) {} return; }   // reconnect path: retry later
+      var msg = d.code === "name_taken" ? t("nameTaken") : t("nameInvalid");
+      var tried = me;
+      me = "";
+      try { ws.close(); } catch (x) {}
+      showJoin(msg, tried);
+    }
+  }
+
+  /* ---------- events ---------- */
+  $("joinForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = $("nameInput").value.trim();
+    if (!v) { $("joinErr").textContent = t("nameInvalid"); return; }
+    $("joinErr").textContent = "";
+
+    function go() { me = v; loadThreads(); connect(); }
+    if (hasSession) { go(); return; }
+
+    if (!tsToken) { $("joinErr").textContent = t("humanCheck"); return; }
+    fetch("/verify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: tsToken })
+    })
+      .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+      .then(function (d) {
+        if (d.ok) { hasSession = true; renderTurnstile(); go(); }
+        else { $("joinErr").textContent = t("verifyFail"); renderTurnstile(); }
+      })
+      .catch(function () { $("joinErr").textContent = t("verifyFail"); renderTurnstile(); });
+  });
+  $("joinLang").addEventListener("click", function () { setLang(lang === "en" ? "fa" : "en"); });
+
+  $("composer").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var text = $("msgInput").value.trim();
+    if (!text || !connected || !ws || ws.readyState !== 1) return;
+    if (current === PUBLIC) ws.send(JSON.stringify({ type: "msg", text: text }));
+    else ws.send(JSON.stringify({ type: "dm", to: current, text: text }));
+    $("msgInput").value = "";
+    $("msgInput").focus();
+  });
+
+  $("usersBtn").addEventListener("click", function () {
+    var open = usersBox.hidden;
+    usersBox.hidden = !open;
+    this.setAttribute("aria-expanded", String(open));
+  });
+
+  function openSettings() { $("myName").textContent = me; $("clearNote").textContent = ""; $("settings").hidden = false; }
+  function closeSettings() { $("settings").hidden = true; }
+  $("settingsBtn").addEventListener("click", openSettings);
+  $("closeSettings").addEventListener("click", closeSettings);
+  $("settings").addEventListener("click", function (e) { if (e.target === this) closeSettings(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeSettings(); });
+
+  document.querySelectorAll("[data-lang]").forEach(function (b) {
+    b.addEventListener("click", function () { setLang(b.getAttribute("data-lang")); });
+  });
+
+  $("changeName").addEventListener("click", function () {
+    var old = me;
+    closeSettings();
+    me = ""; connected = false; joinedOnce = false;
+    localStorage.removeItem("chat-name");
+    if (ws) { try { ws.close(); } catch (x) {} ws = null; }
+    threads = {}; openTabs = []; unread = {}; current = PUBLIC; publicMsgs = []; onlineUsers = [];
+    renderAll();
+    $("joinErr").textContent = "";
+    $("join").hidden = false;
+    $("nameInput").value = old;
+    $("nameInput").focus();
+    $("nameInput").select();
+  });
+
+  $("clearDMs").addEventListener("click", function () {
+    threads = {}; openTabs = []; unread = {};
+    if (current !== PUBLIC) current = PUBLIC;
+    saveThreads();
+    renderTabs(); renderList(true);
+    $("clearNote").textContent = t("cleared");
+  });
+
+  /* ---------- start ---------- */
+  applyLang();
+  if (me) { loadThreads(); renderAll(); startConnect(); }
+  else showJoin("");
+})();
+</script>
+</body>
+</html>
