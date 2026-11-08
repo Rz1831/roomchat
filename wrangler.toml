@@ -1,15 +1,15 @@
-name = "roomchat"
+name = "lumiere-salon"
 main = "worker.js"
 compatibility_date = "2025-01-01"
 
+# Local development database (wrangler dev --local).
+[[d1_databases]]
+binding = "DB"
+database_name = "lumiere-salon"
+database_id = "00000000-0000-0000-0000-0000000000a1"
+
 [vars]
-TURNSTILE_SITEKEY = ""
-OWNER_USERNAME = "Roozer0"
-
-[[durable_objects.bindings]]
-name = "CHAT"
-class_name = "ChatRoom"
-
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["ChatRoom"]
+SALON_NAME = "LUMIÈRE Hair Salon"
+SALON_EMAIL = "hello@lumiere-salon.com"
+SALON_PHONE = "+1 (323) 555-0184"
+SALON_ADDRESS = "1428 Abbot Kinney Blvd, Los Angeles, CA 90291"

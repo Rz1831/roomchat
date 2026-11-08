@@ -1,0 +1,17 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/health",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "RESEND_API_KEY",
+      "description": "Optional — Resend API key used to deliver booking and gift-card emails. Without it, emails are recorded in the dashboard outbox.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "EMAIL_FROM",
+      "description": "Optional — verified sender for Resend, e.g. 'LUMIÈRE Hair Salon <hello@yourdomain.com>'.",
+      "requiredAtBoot": false
+    }
+  ]
+}
