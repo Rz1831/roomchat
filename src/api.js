@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword, createSession, clearSession, currentUser,
 import {
   esc, isEmail, todayISO, addDays, longDay, timeLabel, money, bookingRef, giftCode, randomToken,
 } from "./util.js";
+import { notifyTelegram, bookingMessage } from "./telegram.js";
 
 const json = (data, status = 200, headers = {}) =>
   new Response(JSON.stringify(data), {
@@ -125,8 +126,9 @@ export async function handleApi(request, env) {
       b.notes ? String(b.notes).slice(0, 800) : null, token,
     );
 
-    const appt = { ref, client_name: b.client_name, email: b.email, date: b.date, time: b.time, status: finalStatus, service_name: service.name, stylist_name: stylistId ? (await one(db, "SELECT name FROM stylists WHERE id = ?", stylistId))?.name : null, manage_token: token };
+    const appt = { ref, client_name: b.client_name, email: b.email, phone: b.phone, date: b.date, time: b.time, status: finalStatus, service_name: service.name, stylist_name: stylistId ? (await one(db, "SELECT name FROM stylists WHERE id = ?", stylistId))?.name : null, notes: b.notes ? String(b.notes).slice(0, 800) : null, manage_token: token };
     await sendBookingEmail(env, appt);
+    await notifyTelegram(env, bookingMessage(appt));
     return json({ ok: true, ref, status: finalStatus, manage_url: `/manage?ref=${encodeURIComponent(ref)}&token=${encodeURIComponent(token)}`, message: "Your appointment is booked." });
   }
 

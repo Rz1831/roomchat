@@ -11,6 +11,13 @@ services:
         fi
         npx wrangler d1 execute lumiere-salon --local --file=./schema.sql
         npx wrangler d1 execute lumiere-salon --local --file=./seed.sql
+        # Wrangler only exposes vars from wrangler.toml and .dev.vars to the Worker,
+        # not the process environment, so hand it the secrets it needs.
+        # The file is gitignored and rebuilt on every start.
+        : > .dev.vars
+        if [ -n "$${TELEGRAM_BOT_TOKEN:-}" ]; then
+          printf 'TELEGRAM_BOT_TOKEN=%s\n' "$$TELEGRAM_BOT_TOKEN" >> .dev.vars
+        fi
         exec npx wrangler dev --port 3000 --ip 0.0.0.0 --local --show-interactive-dev-session=false
     volumes:
       - "${BASE44_PROJECT_ROOT}:/workspace"

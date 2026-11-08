@@ -34,6 +34,20 @@ notifications are always written to the `email_outbox` table. When `RESEND_API_K
 is present they are also delivered through Resend, with `EMAIL_FROM` as the sender.
 Without a key the admin dashboard states that no provider is connected.
 
+## Telegram booking alerts
+
+Every new booking posts a short alert to the salon's Telegram chat through the Bot API
+(`src/telegram.js`, called from the `/api/book` handler).
+
+- `TELEGRAM_BOT_TOKEN` is a stored environment secret (`/run/base44/app.env`).
+  Wrangler only exposes bindings from `wrangler.toml` and `.dev.vars`, not the process
+  environment, so the Compose startup command writes a gitignored `.dev.vars` from the
+  container environment before `wrangler dev` starts. Adding another Worker secret means
+  adding it to that same block.
+- `TELEGRAM_CHAT_ID` is a plain `[vars]` value in `wrangler.toml`.
+- Delivery problems are logged as `[telegram] send failed: <reason>` in the service logs;
+  bookings never fail because of Telegram (the send is best-effort).
+
 ## Notes
 
 - Pages and API responses are `cache-control: no-store` in development.

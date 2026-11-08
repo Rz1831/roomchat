@@ -9,6 +9,9 @@ database_name = "lumiere-salon"
 database_id = "00000000-0000-0000-0000-0000000000a1"
 
 [vars]
+# Telegram chat that receives a message for every new booking.
+# The bot token itself is a secret (TELEGRAM_BOT_TOKEN), never in this file.
+TELEGRAM_CHAT_ID = "5433551250"
 SALON_NAME = "LUMIÈRE Hair Salon"
 SALON_EMAIL = "hello@lumiere-salon.com"
 SALON_PHONE = "+1 (323) 555-0184"
