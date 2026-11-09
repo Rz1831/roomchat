@@ -12,6 +12,9 @@ ${pageHero({
 })}
 <section class="section">
   <div class="wrap">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn btn--sm" type="button" data-edit-only hidden data-edit-add>+ Add an image</button>
+    </div>
     <div class="filter-bar" role="group" aria-label="Filter gallery by category">
       <button class="filter-btn" data-filter="all" aria-pressed="true">All</button>
       ${["Cuts", "Color", "Treatments", "Extensions"].map((c) => `<button class="filter-btn" data-filter="${c}" aria-pressed="false">${c}</button>`).join("")}

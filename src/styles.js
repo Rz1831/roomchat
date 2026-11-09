@@ -17,6 +17,7 @@ export const STYLES = `
   --ease:cubic-bezier(.22,.61,.36,1);
 }
 *,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 body{margin:0;background:var(--cream);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.65;font-weight:300;-webkit-font-smoothing:antialiased}
 img{max-width:100%;display:block;background:linear-gradient(135deg,var(--beige),var(--sand))}
@@ -596,4 +597,16 @@ tbody tr:hover{background:rgba(243,227,214,.35)}
 .error-page{text-align:center;padding-block:clamp(60px,10vw,120px);max-width:560px;margin-inline:auto}
 .error-page .code{font-family:var(--serif);font-size:clamp(5rem,14vw,9rem);line-height:.9;color:var(--terracotta);opacity:.35}
 .error-page h1{font-size:clamp(2rem,4vw,2.8rem);margin:10px 0 12px}
+
+/* ---------- owner edit mode (Telegram) ---------- */
+.announce{background:var(--terracotta);color:#fff;text-align:center;font-size:.78rem;letter-spacing:.04em;padding:9px 16px}
+.edit-bar{position:fixed;left:12px;right:12px;bottom:12px;z-index:200;background:var(--ink);color:var(--cream);border-radius:14px;padding:12px 14px;display:flex;gap:12px;align-items:center;justify-content:space-between;font-size:.74rem;box-shadow:var(--shadow)}
+.edit-bar b{color:var(--terracotta);letter-spacing:.12em;font-size:.66rem;margin-right:6px}
+.edit-bar button{border:1px solid rgba(251,243,236,.4);background:transparent;color:var(--cream);border-radius:999px;padding:6px 14px;font:inherit;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+body.is-editing [data-slot]{cursor:copy;outline:2px dashed rgba(192,100,63,.75);outline-offset:3px}
+.edit-delete{position:absolute;top:8px;right:8px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(43,34,32,.85);color:#fff;font-size:.9rem;line-height:1;display:none;place-items:center;cursor:pointer;z-index:6}
+body.is-editing .edit-delete{display:grid}
+.closure-note{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:clamp(20px,4vw,30px);margin-bottom:24px;max-width:640px}
+.closure-note h2{font-size:clamp(1.4rem,3vw,2rem);margin-bottom:8px}
+@media(min-width:760px){.edit-bar{left:auto;right:24px;bottom:24px;max-width:420px}}
 `;

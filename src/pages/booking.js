@@ -2,8 +2,16 @@ import { page } from "../layout.js";
 import { arrowRight, arrowLeft, check, calendar, clock, phone, pin } from "../icons.js";
 import { esc, money, minutesToDuration, timeLabel } from "../util.js";
 
-export const bookingPage = ({ services, stylists, user, preselect = "", today = "" }) => {
+export const bookingPage = ({ services, stylists, user, preselect = "", today = "", status = null }) => {
   const pre = services.find((s) => s.slug === preselect);
+  const closed = Boolean(status && status.closed);
+  const closedNotice = closed
+    ? `<div class="closure-note" role="alert">
+        <p class="eyebrow" style="justify-content:flex-start">Temporarily closed</p>
+        <h2 style="margin-bottom:10px">${esc(status.message || "We are closed until further notice.")}</h2>
+        <p>Online booking is paused while we are away. Call the salon on +1 (323) 555-0184 and we will look after you the moment we reopen.</p>
+      </div>`
+    : "";
   const body = `
 <section class="section" style="padding-top:clamp(28px,4vw,44px)">
   <div class="wrap">
@@ -13,14 +21,15 @@ export const bookingPage = ({ services, stylists, user, preselect = "", today = 
         <h1 style="font-size:clamp(2.2rem,4.4vw,3.4rem);margin-bottom:10px">Your Chair Is Waiting</h1>
         <p class="lede" style="font-size:.92rem;margin-bottom:26px">Five short steps. Free cancellation up to 24 hours before. You will get a confirmation email with a link to change anything.</p>
 
-        <div class="progress" id="booking-progress" aria-label="Booking progress">
+        ${closedNotice}
+        <div class="progress" id="booking-progress" aria-label="Booking progress" ${closed ? "hidden" : ""}>
           ${["Service", "Stylist", "Date & time", "Details", "Review"].map((label, i) => `
             <span class="progress__step ${i === 0 ? "is-active" : ""}" data-step-label="${i + 1}">
               <span class="progress__dot">${i + 1}</span><span>${label}</span>
             </span>${i < 4 ? '<span class="progress__line" aria-hidden="true"></span>' : ""}`).join("")}
         </div>
 
-        <form id="booking-form" novalidate>
+        <form id="booking-form" novalidate ${closed ? "hidden" : ""}>
           <!-- 1: service -->
           <div class="wizard-step is-active" data-step="1">
             <h2>What can we do for you?</h2>

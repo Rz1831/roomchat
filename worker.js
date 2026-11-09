@@ -19,6 +19,11 @@ import { faqPage, privacyPage, notFoundPage } from "./src/pages/static.js";
 import { authPage, accountPage } from "./src/pages/account.js";
 import { adminPage } from "./src/pages/admin.js";
 import { managePage } from "./src/pages/manage.js";
+import { tgPage } from "./src/pages/tg.js";
+import { TG_JS } from "./src/tgapp.js";
+import { EDIT_JS } from "./src/edit.js";
+import { handleWebhook, sendDailySummary } from "./src/bot.js";
+import { ensureSalon, getSettings, siteStatus } from "./src/salon.js";
 
 const SECURITY_HEADERS = {
   "x-content-type-options": "nosniff",
@@ -43,6 +48,32 @@ export default {
 
     try {
       await ensureAdmin(env);
+      await ensureSalon(env.DB);
+      const settings = await getSettings(env.DB);
+      const editMode = url.searchParams.get("edit") === "1" && /^\/($|services|about|gallery|book)/.test(path);
+      const chrome = (markup) => {
+        let out = markup;
+        if (out.includes('class="site-header"')) {
+          const note = String(settings.salon_message || "").trim();
+          if (note) out = out.replace("</header>", `</header><div class="announce" role="status">${esc(note)}</div>`);
+          if (editMode) out = out.replace("</body>", '<script src="/assets/edit.js" defer></script></body>');
+        }
+        return out;
+      };
+      const render = (markup, status) => html(chrome(markup), status);
+
+      if (path === "/tg") return html(tgPage());
+      if (path === "/assets/tgapp.js") return asset(TG_JS);
+      if (path === "/assets/edit.js") return asset(EDIT_JS);
+      if (path.startsWith("/media/")) {
+        const media = await one(env.DB, "SELECT content_type, data FROM media WHERE id = ?", path.slice(7));
+        if (!media) return new Response("Not found", { status: 404 });
+        return new Response(media.data, { headers: { "content-type": media.content_type, "cache-control": "public, max-age=31536000, immutable" } });
+      }
+      if (path === "/telegram/webhook" && request.method === "POST") {
+        await handleWebhook(request, env);
+        return new Response("ok", { headers: { "content-type": "text/plain; charset=utf-8" } });
+      }
 
       if (path.startsWith("/api/")) return await handleApi(request, env);
       if (path === "/assets/app.js") return asset(APP_JS);
@@ -56,7 +87,7 @@ export default {
       if (path === "/sitemap.xml") return sitemap(env);
 
       if (request.method !== "GET" && request.method !== "HEAD") {
-        return html(notFoundPage({ user: null, path }), 405);
+        return render(notFoundPage({ user: null, path }), 405);
       }
 
       const user = await currentUser(request, env.DB);
@@ -67,40 +98,40 @@ export default {
           const [services, stylists, testimonials, gallery] = await Promise.all([
             getServices(db), getStylists(db), getTestimonials(db), getGallery(db),
           ]);
-          return html(homePage({ services, stylists, testimonials, gallery, faqs: getFaqs(), user }));
+          return render(homePage({ services, stylists, testimonials, gallery, faqs: getFaqs(), user, settings }));
         }
         case "/services": {
           const services = await getServices(db);
-          return html(servicesPage({ services, faqs: getFaqs(), user }));
+          return render(servicesPage({ services, faqs: getFaqs(), user }));
         }
         case "/about": {
           const stylists = await getStylists(db);
-          return html(aboutPageWrapped({ stylists, user }));
+          return render(aboutPageWrapped({ stylists, user, settings }));
         }
         case "/gallery": {
           const gallery = await getGallery(db);
-          return html(galleryPageHtml({ gallery, user }));
+          return render(galleryPageHtml({ gallery, user }));
         }
         case "/book": {
           const [services, stylists] = await Promise.all([getServices(db), getStylists(db)]);
-          return html(bookingPage({ services, stylists, user, preselect: url.searchParams.get("service") || "", today: todayISO() }));
+          return render(bookingPage({ services, stylists, user, preselect: url.searchParams.get("service") || "", today: todayISO(), status: await siteStatus(db) }));
         }
         case "/contact": {
           const hours = await getHours(db);
-          return html(contactPageHtml({ hours, user }));
+          return render(contactPageHtml({ hours, user }));
         }
         case "/blog": {
           const posts = await getPosts(db);
-          return html(blogPageHtml({ posts, user }));
+          return render(blogPageHtml({ posts, user }));
         }
-        case "/gift-cards": return html(giftPageHtml({ faqs: getFaqs(), user }));
-        case "/faq": return html(faqPage({ faqs: getFaqs(), user }));
-        case "/privacy": return html(privacyPage({ user }));
+        case "/gift-cards": return render(giftPageHtml({ faqs: getFaqs(), user }));
+        case "/faq": return render(faqPage({ faqs: getFaqs(), user }));
+        case "/privacy": return render(privacyPage({ user }));
 
         case "/login":
         case "/signup": {
           if (user) return redirect(user.role === "admin" ? "/admin" : "/account");
-          return html(authPage({ mode: path === "/login" ? "login" : "signup", user }));
+          return render(authPage({ mode: path === "/login" ? "login" : "signup", user }));
         }
 
         case "/account": {
@@ -116,13 +147,13 @@ export default {
           const today = todayISO();
           const upcoming = rows.filter((a) => a.date >= today && ["pending", "confirmed"].includes(a.status)).reverse();
           const past = rows.filter((a) => a.date < today || !["pending", "confirmed"].includes(a.status));
-          return html(accountPage({ user, upcoming, past }));
+          return render(accountPage({ user, upcoming, past }));
         }
 
         case "/admin": {
           if (!user) return redirect("/login?next=%2Fadmin");
           if (user.role !== "admin") return redirect("/account");
-          return html(adminPage({ user }));
+          return render(adminPage({ user }));
         }
 
         case "/manage": {
@@ -138,8 +169,8 @@ export default {
                 ref, token,
               )
             : null;
-          if (!appointment) return html(notFoundPage({ user, path }), 404);
-          return html(managePage({ appointment, user }));
+          if (!appointment) return render(notFoundPage({ user, path }), 404);
+          return render(managePage({ appointment, user }));
         }
         default:
           break;
@@ -149,11 +180,11 @@ export default {
         const slug = decodeURIComponent(path.slice(6));
         const posts = await getPosts(db);
         const post = posts.find((p) => p.slug === slug);
-        if (!post) return html(notFoundPage({ user, path }), 404);
-        return html(postPage({ post, others: posts.filter((p) => p.slug !== slug), user }));
+        if (!post) return render(notFoundPage({ user, path }), 404);
+        return render(postPage({ post, others: posts.filter((p) => p.slug !== slug), user }));
       }
 
-      return html(notFoundPage({ user, path }), 404);
+      return render(notFoundPage({ user, path }), 404);
     } catch (err) {
       console.error("Unhandled error", path, err && err.stack ? err.stack : err);
       return html(
@@ -166,6 +197,10 @@ export default {
         500,
       );
     }
+  },
+
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(sendDailySummary(env));
   },
 };
 

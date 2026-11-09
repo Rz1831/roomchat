@@ -8,7 +8,9 @@ const values = [
   { icon: sparkle, title: "A room that slows down", text: "No overlapping clients, no stopwatch. Your slot is yours, with proper coffee and a playlist that is not too loud." },
 ];
 
-export const aboutPage = ({ stylists, user }) => `
+const aboutImg = (settings, key, fallback) => esc((settings && settings[key]) || fallback);
+
+export const aboutPage = ({ stylists, user, settings = {} }) => `
 ${pageHero({
   eyebrow: "Our story",
   title: "More Than a Salon",
@@ -24,7 +26,7 @@ ${pageHero({
       <p class="lede">Today the salon has four chairs, a treatment room and a team that has stayed together for years. We are still independent, still owner-run, and still more interested in the health of your ends than the number of services we can add to a ticket.</p>
       <p class="quote-large" style="margin-top:28px">“The best compliment is a client who does not need us for six weeks.”</p>
     </div>
-    <img src="https://images.unsplash.com/photo-1600948836101-f9ffda59d250?auto=format&fit=crop&w=1000&q=80" alt="The LUMIÈRE salon interior with warm light, mirrors and plants" width="1000" height="800" loading="lazy">
+    <img src="${aboutImg(settings, "image.about", "https://images.unsplash.com/photo-1600948836101-f9ffda59d250?auto=format&fit=crop&w=1000&q=80")}" data-slot="image.about" alt="The LUMIÈRE salon interior with warm light, mirrors and plants" width="1000" height="800" loading="lazy">
   </div>
 </section>
 
@@ -44,7 +46,7 @@ ${pageHero({
 
 <section class="section">
   <div class="wrap split">
-    <img src="https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1000&q=80" alt="A stylist finishing a client's soft waves in natural light" width="1000" height="800" loading="lazy">
+    <img src="${aboutImg(settings, "image.about2", "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1000&q=80")}" data-slot="image.about2" alt="A stylist finishing a client's soft waves in natural light" width="1000" height="800" loading="lazy">
     <div data-reveal>
       <p class="eyebrow">The last ten years</p>
       <h2>A Quiet Timeline</h2>
@@ -80,7 +82,7 @@ ${pageHero({
 <section class="section">
   <div class="wrap cta">
     <div class="cta__media" data-reveal>
-      <img src="https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=900&q=80" alt="A finished soft layered cut at LUMIÈRE" width="900" height="900" loading="lazy">
+      <img src="${aboutImg(settings, "image.about3", "https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=900&q=80")}" data-slot="image.about3" alt="A finished soft layered cut at LUMIÈRE" width="900" height="900" loading="lazy">
     </div>
     <div class="cta__copy" data-reveal>
       <p class="eyebrow">Come say hello</p>
@@ -98,4 +100,5 @@ export const aboutPageWrapped = (data) =>
     path: "/about",
     body: aboutPage(data),
     user: data.user,
+    settings: data.settings,
   });

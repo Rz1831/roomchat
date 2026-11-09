@@ -530,13 +530,15 @@ export const APP_JS = String.raw`
         const result = await res.json();
         slotsEl.innerHTML = "";
         if (!result.slots || !result.slots.length) {
-          if (result.reason === "closed" || result.reason === "holiday" || result.reason === "stylist-off") {
+          if (result.reason === "closure" || result.reason === "closed" || result.reason === "holiday" || result.reason === "stylist-off") {
             closedEl.hidden = false;
-            closedEl.textContent = result.reason === "holiday"
-              ? "The salon is closed on this date" + (result.note ? " (" + result.note + ")" : "") + ". Please choose another day."
-              : result.reason === "stylist-off"
-                ? "Your chosen stylist does not work on this day. Try another date or choose any stylist."
-                : "The salon is closed on this day. Please choose another date.";
+            closedEl.textContent = result.reason === "closure"
+              ? (result.note || "We are closed until further notice.")
+              : result.reason === "holiday"
+                ? "The salon is closed on this date" + (result.note ? " (" + result.note + ")" : "") + ". Please choose another day."
+                : result.reason === "stylist-off"
+                  ? "Your chosen stylist does not work on this day. Try another date or choose any stylist."
+                  : "The salon is closed on this day. Please choose another date.";
           } else {
             emptyEl.hidden = false;
           }

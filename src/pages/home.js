@@ -38,7 +38,8 @@ const tiers = [
   },
 ];
 
-export const homePage = ({ services, stylists, testimonials, gallery, faqs, user }) => {
+export const homePage = ({ services, stylists, testimonials, gallery, faqs, user, settings = {} }) => {
+  const img = (key, fallback) => esc(settings[key] || fallback);
   const featured = services.filter((s) => s.featured).slice(0, 4);
   const proofAvatars = testimonials.slice(0, 3);
 
@@ -66,7 +67,7 @@ export const homePage = ({ services, stylists, testimonials, gallery, faqs, user
     <div class="hero__media">
       <span class="hero__note">Abbot Kinney · Est. 2014</span>
       <div class="hero__frame">
-        <img src="https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=1100&q=85" alt="A LUMIÈRE stylist shaping a client's wavy hair by the window" width="1100" height="1265" fetchpriority="high">
+        <img src="${img("image.hero", "https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=1100&q=85")}" data-slot="image.hero" alt="A LUMIÈRE stylist shaping a client's wavy hair by the window" width="1100" height="1265" fetchpriority="high">
       </div>
       ${badge()}
     </div>
@@ -110,7 +111,7 @@ export const homePage = ({ services, stylists, testimonials, gallery, faqs, user
       <p class="story__sign">— Amara Laurent, Founder</p>
     </div>
     <div class="story__media">
-      <img src="https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=1000&q=80" alt="A warm corner of the salon — woven pendants, olive walls and a table of books" width="1000" height="800" loading="lazy">
+      <img src="${img("image.story", "https://images.unsplash.com/photo-1615529182904-14819c35db37?auto=format&fit=crop&w=1000&q=80")}" data-slot="image.story" alt="A warm corner of the salon — woven pendants, olive walls and a table of books" width="1000" height="800" loading="lazy">
     </div>
   </div>
 </section>
@@ -118,7 +119,7 @@ export const homePage = ({ services, stylists, testimonials, gallery, faqs, user
 <section class="section">
   <div class="wrap cta">
     <div class="cta__media" data-reveal>
-      <img src="https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80" alt="The bright, plant-filled interior of LUMIÈRE Hair Salon" width="900" height="900" loading="lazy">
+      <img src="${img("image.cta", "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80")}" data-slot="image.cta" alt="The bright, plant-filled interior of LUMIÈRE Hair Salon" width="900" height="900" loading="lazy">
     </div>
     <div class="cta__copy" data-reveal>
       <p class="eyebrow">Ready when you are</p>

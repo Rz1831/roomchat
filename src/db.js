@@ -1,4 +1,4 @@
-import { todayISO, parseISO, timeToMinutes, minutesToTime, DAY_NAMES } from "./util.js";
+import { DAY_NAMES } from "./util.js";
 
 export const one = async (db, sql, ...params) => (await db.prepare(sql).bind(...params).first()) || null;
 export const all = async (db, sql, ...params) => ((await db.prepare(sql).bind(...params).all()).results) || [];
@@ -53,64 +53,6 @@ export const getFaqs = () => [
     a: "We do. Ines leads bridal, and we can host up to six people before opening hours. Email hello@lumiere-salon.com with your date and party size and we will send a proposal.",
   },
 ];
-
-// ---------- availability ----------
-const salonNow = () => {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-  const get = (t) => Number(parts.find((p) => p.type === t)?.value || 0);
-  return get("hour") * 60 + get("minute");
-};
-
-export const availableSlots = async (db, { date, stylistId = null, serviceId = null }) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) return { slots: [], reason: "invalid-date" };
-
-  const holiday = await one(db, "SELECT reason FROM holidays WHERE date = ?", date);
-  if (holiday) return { slots: [], reason: "holiday", note: holiday.reason };
-
-  const dow = parseISO(date).getUTCDay();
-  const hours = await one(db, "SELECT * FROM opening_hours WHERE day = ?", dow);
-  if (!hours || hours.closed) return { slots: [], reason: "closed" };
-
-  const stylists = await getStylists(db);
-  let pool = stylists.filter((s) => String(s.working_days).split(",").includes(String(dow)));
-  if (stylistId) {
-    pool = pool.filter((s) => String(s.id) === String(stylistId));
-    if (!pool.length) return { slots: [], reason: "stylist-off" };
-  }
-
-  let start = timeToMinutes(hours.open);
-  let end = timeToMinutes(hours.close);
-  if (stylistId && pool[0]) {
-    start = Math.max(start, timeToMinutes(pool[0].start_time));
-    end = Math.min(end, timeToMinutes(pool[0].end_time));
-  }
-  let service = null;
-  if (serviceId) service = await one(db, "SELECT duration FROM services WHERE id = ?", serviceId);
-  const duration = Math.max(30, Number(service?.duration || 60));
-
-  const booked = await all(
-    db,
-    "SELECT stylist_id, time FROM appointments WHERE date = ? AND status != 'cancelled'",
-    date,
-  );
-
-  const isToday = date === todayISO();
-  const now = salonNow();
-  const slots = [];
-  for (let t = start; t + duration <= end; t += 30) {
-    const time = minutesToTime(t);
-    if (isToday && t <= now + 30) continue;
-    const atTime = booked.filter((b) => b.time === time);
-    const free = stylistId ? !atTime.some((b) => String(b.stylist_id) === String(stylistId)) : atTime.length < Math.max(1, pool.length);
-    if (free) slots.push(time);
-  }
-  return { slots, reason: slots.length ? "ok" : "full", capacity: Math.max(1, pool.length) };
-};
 
 // Best-effort email: always recorded in the outbox so nothing is lost, and sent
 // through Resend when a key is configured. Without a key the salon can read the

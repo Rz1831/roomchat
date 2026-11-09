@@ -138,6 +138,58 @@ CREATE TABLE IF NOT EXISTS holidays (
   reason TEXT NOT NULL
 );
 
+-- Key/value app settings (availability rules, image slots, salon details).
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT ''
+);
+
+-- Uploaded images live in D1 and are served from /media/<id>.
+CREATE TABLE IF NOT EXISTS media (
+  id TEXT PRIMARY KEY,
+  filename TEXT NOT NULL DEFAULT '',
+  content_type TEXT NOT NULL,
+  size INTEGER NOT NULL DEFAULT 0,
+  data BLOB NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Salon closures: a single day, a range, or indefinite (end_date NULL).
+CREATE TABLE IF NOT EXISTS closures (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  start_date TEXT NOT NULL,
+  end_date TEXT,
+  indefinite INTEGER NOT NULL DEFAULT 0,
+  message TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Slots taken outside the website (walk-ins, phone bookings). Blocks the whole slot.
+CREATE TABLE IF NOT EXISTS blocked_slots (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,
+  time TEXT NOT NULL,
+  client_name TEXT,
+  phone TEXT,
+  service_id INTEGER,
+  note TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(date, time)
+);
+
+CREATE TABLE IF NOT EXISTS service_categories (
+  name TEXT PRIMARY KEY,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Multi-step conversation state for the Telegram bot.
+CREATE TABLE IF NOT EXISTS tg_state (
+  chat_id TEXT PRIMARY KEY,
+  step TEXT NOT NULL,
+  payload TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS email_outbox (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   to_email TEXT NOT NULL,

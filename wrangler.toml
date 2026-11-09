@@ -16,3 +16,7 @@ SALON_NAME = "LUMIÈRE Hair Salon"
 SALON_EMAIL = "hello@lumiere-salon.com"
 SALON_PHONE = "+1 (323) 555-0184"
 SALON_ADDRESS = "1428 Abbot Kinney Blvd, Los Angeles, CA 90291"
+
+# 15:00 UTC ≈ 08:00 in Los Angeles — the daily schedule message.
+[triggers]
+crons = ["0 15 * * *"]

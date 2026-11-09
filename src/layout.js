@@ -119,9 +119,12 @@ export const page = ({
   noindex = false,
   jsonLd = null,
   headerExtra = "",
+  settings = null,
+  edit = false,
 }) => {
   const fullTitle = title ? `${title} — LUMIÈRE Hair Salon` : "LUMIÈRE Hair Salon — Healthy Hair. Beautiful You.";
   const origin = "https://lumiere-salon.com";
+  const ogImage = (settings && settings["image.banner"]) || "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1200&q=80";
   return `<!doctype html>
 <html lang="en" dir="ltr">
 <head>
@@ -137,7 +140,7 @@ ${noindex ? '<meta name="robots" content="noindex, nofollow">' : ""}
 <meta property="og:title" content="${esc(fullTitle)}">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${origin}${path}">
-<meta property="og:image" content="https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1200&q=80">
+<meta property="og:image" content="${esc(ogImage.startsWith("/") ? "https://lumiere-salon.com" + ogImage : ogImage)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(fullTitle)}">
 <meta name="twitter:description" content="${esc(description)}">
@@ -159,6 +162,7 @@ ${footer()}
 ${floating()}
 ${cookieBanner()}
 ${(Array.isArray(script) ? script : [script]).map((s) => `<script src="/assets/${s}.js" defer></script>`).join("")}
+${edit ? '<script src="/assets/edit.js" defer></script>' : ""}
 </body>
 </html>`;
 };
