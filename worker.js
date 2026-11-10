@@ -1,10 +1,8 @@
 import { page } from "./src/layout.js";
 import { APP_JS } from "./src/client.js";
-import { ADMIN_JS } from "./src/admin.js";
 import { handleApi } from "./src/api.js";
-import { currentUser, ensureAdmin } from "./src/auth.js";
 import {
-  all, one, getServices, getStylists, getTestimonials, getGallery, getPosts, getFaqs, getHours,
+  one, getServices, getStylists, getTestimonials, getGallery, getPosts, getFaqs, getHours,
 } from "./src/db.js";
 import { todayISO, esc } from "./src/util.js";
 import { homePage } from "./src/pages/home.js";
@@ -16,14 +14,12 @@ import { contactPageHtml } from "./src/pages/contact.js";
 import { blogPageHtml, postPage } from "./src/pages/blog.js";
 import { giftPageHtml } from "./src/pages/giftcards.js";
 import { faqPage, privacyPage, notFoundPage } from "./src/pages/static.js";
-import { authPage, accountPage } from "./src/pages/account.js";
-import { adminPage } from "./src/pages/admin.js";
 import { managePage } from "./src/pages/manage.js";
 import { tgPage } from "./src/pages/tg.js";
 import { TG_JS } from "./src/tgapp.js";
 import { EDIT_JS } from "./src/edit.js";
 import { handleWebhook, sendDailySummary } from "./src/bot.js";
-import { ensureSalon, getSettings, siteStatus } from "./src/salon.js";
+import { ensureSalon, getSettings, siteStatus, salonLocation, toBytes, sniffImageType } from "./src/salon.js";
 
 const SECURITY_HEADERS = {
   "x-content-type-options": "nosniff",
@@ -47,7 +43,6 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { status: 204 });
 
     try {
-      await ensureAdmin(env);
       await ensureSalon(env.DB);
       const settings = await getSettings(env.DB);
       const editMode = url.searchParams.get("edit") === "1" && /^\/($|services|about|gallery|book)/.test(path);
@@ -66,9 +61,22 @@ export default {
       if (path === "/assets/tgapp.js") return asset(TG_JS);
       if (path === "/assets/edit.js") return asset(EDIT_JS);
       if (path.startsWith("/media/")) {
-        const media = await one(env.DB, "SELECT content_type, data FROM media WHERE id = ?", path.slice(7));
+        const media = await one(env.DB, "SELECT content_type, size, data FROM media WHERE id = ?", path.slice(7));
         if (!media) return new Response("Not found", { status: 404 });
-        return new Response(media.data, { headers: { "content-type": media.content_type, "cache-control": "public, max-age=31536000, immutable" } });
+        // D1 hands a BLOB back as an array of numbers (or an ArrayBuffer), never
+        // as a Response-ready body — convert so the bytes are returned verbatim.
+        const bytes = toBytes(media.data);
+        if (!bytes || !bytes.byteLength) return new Response("Not found", { status: 404 });
+        const type = sniffImageType(bytes);
+        if (!type) return new Response("Unsupported media", { status: 415 });
+        return new Response(bytes, {
+          headers: {
+            "content-type": type,
+            "content-length": String(bytes.length),
+            "cache-control": "public, max-age=3600",
+            "x-content-type-options": "nosniff",
+          },
+        });
       }
       if (path === "/telegram/webhook" && request.method === "POST") {
         await handleWebhook(request, env);
@@ -77,10 +85,9 @@ export default {
 
       if (path.startsWith("/api/")) return await handleApi(request, env);
       if (path === "/assets/app.js") return asset(APP_JS);
-      if (path === "/assets/admin.js") return asset(ADMIN_JS);
       if (path === "/health") return new Response("ok", { headers: { "content-type": "text/plain" } });
       if (path === "/robots.txt") {
-        return new Response("User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /account\nSitemap: https://lumiere-salon.com/sitemap.xml\n", {
+        return new Response("User-agent: *\nAllow: /\nSitemap: https://lumiere-salon.com/sitemap.xml\n", {
           headers: { "content-type": "text/plain; charset=utf-8" },
         });
       }
@@ -90,15 +97,15 @@ export default {
         return render(notFoundPage({ user: null, path }), 405);
       }
 
-      const user = await currentUser(request, env.DB);
+      const user = null;
       const db = env.DB;
 
       switch (path) {
         case "/": {
-          const [services, stylists, testimonials, gallery] = await Promise.all([
-            getServices(db), getStylists(db), getTestimonials(db), getGallery(db),
+          const [services, stylists, testimonials, gallery, hours, location] = await Promise.all([
+            getServices(db), getStylists(db), getTestimonials(db), getGallery(db), getHours(db), salonLocation(db),
           ]);
-          return render(homePage({ services, stylists, testimonials, gallery, faqs: getFaqs(), user, settings }));
+          return render(homePage({ services, stylists, testimonials, gallery, faqs: getFaqs(), user, settings, hours, location }));
         }
         case "/services": {
           const services = await getServices(db);
@@ -117,8 +124,8 @@ export default {
           return render(bookingPage({ services, stylists, user, preselect: url.searchParams.get("service") || "", today: todayISO(), status: await siteStatus(db) }));
         }
         case "/contact": {
-          const hours = await getHours(db);
-          return render(contactPageHtml({ hours, user }));
+          const [hours, location] = await Promise.all([getHours(db), salonLocation(db)]);
+          return render(contactPageHtml({ hours, location, user }));
         }
         case "/blog": {
           const posts = await getPosts(db);
@@ -129,32 +136,10 @@ export default {
         case "/privacy": return render(privacyPage({ user }));
 
         case "/login":
-        case "/signup": {
-          if (user) return redirect(user.role === "admin" ? "/admin" : "/account");
-          return render(authPage({ mode: path === "/login" ? "login" : "signup", user }));
-        }
-
-        case "/account": {
-          if (!user) return redirect("/login");
-          const rows = await all(
-            db,
-            `SELECT a.*, s.name AS service_name, s.slug AS service_slug, st.name AS stylist_name
-               FROM appointments a JOIN services s ON s.id = a.service_id
-               LEFT JOIN stylists st ON st.id = a.stylist_id
-              WHERE a.user_id = ? ORDER BY a.date DESC, a.time DESC`,
-            user.id,
-          );
-          const today = todayISO();
-          const upcoming = rows.filter((a) => a.date >= today && ["pending", "confirmed"].includes(a.status)).reverse();
-          const past = rows.filter((a) => a.date < today || !["pending", "confirmed"].includes(a.status));
-          return render(accountPage({ user, upcoming, past }));
-        }
-
-        case "/admin": {
-          if (!user) return redirect("/login?next=%2Fadmin");
-          if (user.role !== "admin") return redirect("/account");
-          return render(adminPage({ user }));
-        }
+        case "/signup":
+        case "/account":
+        case "/admin":
+          return redirect("/");
 
         case "/manage": {
           const ref = url.searchParams.get("ref") || "";

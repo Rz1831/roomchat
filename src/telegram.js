@@ -88,6 +88,12 @@ export function bookingMessage(appt) {
     appt.phone ? String(appt.phone) : "",
     appt.email ? String(appt.email) : "",
   ];
+  const back = appt.returning || null;
+  if (back && back.visits) {
+    lines.push("", `🔁 Returning client — ${back.visits} previous visit${back.visits === 1 ? "" : "s"}`);
+    if (back.last_service) lines.push(`Last: ${back.last_service}${back.last_date ? ` on ${back.last_date}` : ""}`);
+    if (back.notes) lines.push(`Earlier notes: ${back.notes}`);
+  }
   if (appt.notes) lines.push("", `Notes: ${appt.notes}`);
   return lines.filter((l) => l !== "").join("\n");
 }

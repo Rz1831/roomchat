@@ -7,6 +7,7 @@ import {
 import {
   todayISO, parseISO, addDays, timeToMinutes, minutesToTime, randomToken, DAY_NAMES,
 } from "./util.js";
+import { resolveMapLink } from "./location.js";
 
 /* ---------------- settings ---------------- */
 
@@ -24,7 +25,11 @@ export const DEFAULT_SETTINGS = {
   daily_summary: "1",
   salon_name: "LUMIÈRE Hair Salon",
   salon_phone: "+1 (323) 555-0184",
+  salon_email: "hello@lumiere-salon.com",
   salon_address: "1428 Abbot Kinney Blvd, Los Angeles, CA 90291",
+  salon_tagline: "A sunlit studio on Abbot Kinney — precision cuts, dimensional colour and scalp-first care, five minutes from the beach.",
+  map_link: "",
+  map_embed: "",
   salon_message: "",
 };
 
@@ -35,6 +40,13 @@ let ready = null;
 export const ensureSalon = async (db) => {
   if (!ready) {
     ready = (async () => {
+      // Existing databases predate device-linked bookings; add the column once.
+      try {
+        await run(db, "ALTER TABLE appointments ADD COLUMN device_id TEXT");
+      } catch { /* column already exists */ }
+      try {
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_appt_device ON appointments(device_id)");
+      } catch { /* table not created yet */ }
       for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
         await run(db, "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", key, value);
       }
@@ -72,6 +84,35 @@ export const setBreak = async (db, start, end) => {
   const clean = (v) => (/^\d{2}:\d{2}$/.test(String(v || "")) ? String(v) : "");
   await setSetting(db, "break_start", clean(start));
   await setSetting(db, "break_end", clean(end));
+};
+
+/* ---------------- location / map ---------------- */
+
+export const saveMapLink = async (db, input, fallbackAddress = "") => {
+  const res = await resolveMapLink(input, fallbackAddress);
+  if (!res.ok) return res;
+  await setSetting(db, "map_link", res.link);
+  await setSetting(db, "map_embed", res.embed);
+  return res;
+};
+
+export const salonLocation = async (db) => {
+  const s = await getSettings(db);
+  return {
+    name: s.salon_name || "",
+    address: s.salon_address || "",
+    phone: s.salon_phone || "",
+    email: s.salon_email || "",
+    description: s.salon_tagline || "",
+    embed: String(s.map_embed || "").startsWith("https://www.google.com/maps") ? s.map_embed : "",
+    link: s.map_link || "",
+  };
+};
+
+export const directionsUrl = (location) => {
+  if (location.link && !/maps\.app\.goo\.gl/i.test(location.link)) return location.link;
+  const target = location.address || location.name || "";
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(target)}`;
 };
 
 /* ---------------- opening hours ---------------- */
@@ -380,19 +421,72 @@ export const deleteService = async (db, id) => {
 /* ---------------- media + image slots ---------------- */
 
 export const MAX_UPLOAD = 4 * 1024 * 1024;
-const OK_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
+
+// The stored bytes decide the type, so a mislabelled or missing content type can
+// never end up in the media table. Each test reads the real magic bytes.
+const IMAGE_MAGIC = [
+  [0xff, 0xd8, 0xff, "image/jpeg"],
+  [0x89, 0x50, 0x4e, 0x47, "image/png"],
+  [0x47, 0x49, 0x46, 0x38, "image/gif"],
+];
+
+export const sniffImageType = (bytes) => {
+  if (!bytes || bytes.length < 12) return "";
+  for (const entry of IMAGE_MAGIC) {
+    const type = entry[entry.length - 1];
+    if (entry.slice(0, -1).every((byte, i) => bytes[i] === byte)) return type;
+  }
+  const ascii = (from, to) => String.fromCharCode(...bytes.slice(from, to));
+  if (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return "image/webp";
+  if (ascii(4, 8) === "ftyp" && (ascii(8, 12) === "avif" || ascii(8, 12) === "avis")) return "image/avif";
+  return "";
+};
+
+const BASE64 = /^[A-Za-z0-9+/=\s]+$/;
+
+const decodeBase64 = (text) => {
+  try {
+    const binary = atob(String(text).replace(/\s+/g, ""));
+    const out = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+    return out;
+  } catch {
+    return null;
+  }
+};
+
+// Normalise whatever an uploader hands us into real bytes: ArrayBuffer, typed
+// array, number array, base64 text or a "data:image/…;base64,…" URL.
+export const toBytes = (value) => {
+  if (value === null || value === undefined) return null;
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  if (Array.isArray(value)) return new Uint8Array(value);
+  if (typeof value === "string") {
+    const text = value.trim();
+    const comma = text.indexOf(",");
+    const payload = /^data:/i.test(text) && comma >= 0 ? text.slice(comma + 1) : text;
+    if (!BASE64.test(payload) || payload.length < 32) return null;
+    return decodeBase64(payload);
+  }
+  return null;
+};
 
 export const saveMedia = async (db, { bytes, contentType, filename }) => {
-  const type = String(contentType || "").split(";")[0].trim().toLowerCase();
-  if (!OK_TYPES.includes(type)) return { ok: false, error: "Please send a JPG, PNG, WebP, GIF or AVIF image." };
-  if (!bytes || bytes.byteLength > MAX_UPLOAD) return { ok: false, error: "Images must be smaller than 4 MB." };
+  const raw = toBytes(bytes);
+  if (!raw || !raw.byteLength) return { ok: false, error: "That image arrived empty — please try again." };
+  if (raw.byteLength > MAX_UPLOAD) return { ok: false, error: "Images must be smaller than 4 MB." };
+  const type = sniffImageType(raw);
+  if (!type) return { ok: false, error: "Please send a JPG, PNG, WebP, GIF or AVIF image." };
+
   const id = randomToken(10);
+  const buffer = raw.byteOffset === 0 && raw.byteLength === raw.buffer.byteLength ? raw.buffer : raw.slice().buffer;
   await run(
     db,
     "INSERT INTO media (id, filename, content_type, size, data) VALUES (?,?,?,?,?)",
-    id, String(filename || "upload").slice(0, 120), type, bytes.byteLength, bytes,
+    id, String(filename || "upload").slice(0, 120), type, buffer.byteLength, buffer,
   );
-  return { ok: true, id, url: `/media/${id}` };
+  return { ok: true, id, url: `/media/${id}`, size: buffer.byteLength, contentType: type };
 };
 
 export const IMAGE_SLOT_LABELS = {

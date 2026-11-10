@@ -21,6 +21,7 @@ export const bookingPage = ({ services, stylists, user, preselect = "", today = 
         <h1 style="font-size:clamp(2.2rem,4.4vw,3.4rem);margin-bottom:10px">Your Chair Is Waiting</h1>
         <p class="lede" style="font-size:.92rem;margin-bottom:26px">Five short steps. Free cancellation up to 24 hours before. You will get a confirmation email with a link to change anything.</p>
 
+        <div class="upcoming-card" data-my-upcoming hidden></div>
         ${closedNotice}
         <div class="progress" id="booking-progress" aria-label="Booking progress" ${closed ? "hidden" : ""}>
           ${["Service", "Stylist", "Date & time", "Details", "Review"].map((label, i) => `
@@ -99,6 +100,7 @@ export const bookingPage = ({ services, stylists, user, preselect = "", today = 
           <div class="wizard-step" data-step="4">
             <h2>Your details</h2>
             <p>We use these only for your appointment and the confirmation email.</p>
+            <div class="recall-note" id="client-recall" hidden></div>
             <div class="form-row form-row--2">
               <div class="field">
                 <label for="b-name">Full name</label>
@@ -122,6 +124,7 @@ export const bookingPage = ({ services, stylists, user, preselect = "", today = 
             </div>
             <label class="checkbox"><input type="checkbox" name="consent" required><span>I agree to the 24-hour cancellation policy and to LUMIÈRE storing these details to manage my appointment.</span></label>
             <span class="field__error" data-error-for="consent" style="margin-top:6px">Please accept the cancellation policy.</span>
+            <p class="device-note">We remember your details on this device to speed up booking. <button type="button" data-clear-client>Clear my saved details</button></p>
             <div class="wizard-actions">
               <button type="button" class="btn btn--ghost" data-back="3">${arrowLeft} Back</button>
               <button type="button" class="btn" data-next="5">Review booking ${arrowRight}</button>
@@ -151,8 +154,9 @@ export const bookingPage = ({ services, stylists, user, preselect = "", today = 
           <p class="lede" style="margin-inline:auto" id="success-text">A confirmation is on its way to your inbox.</p>
           <div class="ref-pill"><span>Reference</span><strong id="success-ref">—</strong></div>
           <div class="review-block" style="text-align:left" id="success-summary"></div>
+          <div class="upcoming-card" data-my-upcoming hidden></div>
           <div class="confirmation__actions">
-            <a class="btn" href="/account">My appointments ${arrowRight}</a>
+            <a class="btn" href="/book">Book another visit ${arrowRight}</a>
             <a class="btn btn--ghost" id="success-manage" href="#">Manage this booking</a>
           </div>
           <p class="form-note" style="margin-top:20px">Need to change something? Use the link above or the one in your email. Free up to 24 hours before.</p>

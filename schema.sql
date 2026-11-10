@@ -61,12 +61,14 @@ CREATE TABLE IF NOT EXISTS appointments (
   time TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   notes TEXT,
+  device_id TEXT,
   manage_token TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_appt_date ON appointments(date, time);
 CREATE INDEX IF NOT EXISTS idx_appt_email ON appointments(email);
+CREATE INDEX IF NOT EXISTS idx_appt_device ON appointments(device_id);
 
 CREATE TABLE IF NOT EXISTS testimonials (
   id INTEGER PRIMARY KEY,

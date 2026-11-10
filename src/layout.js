@@ -13,7 +13,7 @@ const NAV = [
 
 const isActive = (href, path) => (href === "/" ? path === "/" : path === href || path.startsWith(href + "/"));
 
-export const header = (path, user) => `
+export const header = (path) => `
 <header class="site-header" id="site-header">
   <div class="wrap header-inner">
     <a class="brand" href="/" aria-label="LUMIÈRE Hair Salon — home">
@@ -23,9 +23,6 @@ export const header = (path, user) => `
       ${NAV.map(([href, label]) => `<a href="${href}" ${isActive(href, path) ? 'aria-current="page"' : ""}>${label}</a>`).join("")}
     </nav>
     <div class="header-actions">
-      <a class="header-account" href="${user ? (user.role === "admin" ? "/admin" : "/account") : "/login"}">
-        ${user ? (user.role === "admin" ? "Dashboard" : esc(user.name.split(" ")[0])) : "Sign in"}
-      </a>
       <a class="btn btn--sm" href="/book">Book Appointment ${arrowRight}</a>
       <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="mobile-nav" aria-label="Open menu">
         <span></span>
@@ -35,7 +32,6 @@ export const header = (path, user) => `
 </header>
 <div class="mobile-nav" id="mobile-nav">
   ${NAV.map(([href, label]) => `<a href="${href}" ${isActive(href, path) ? 'aria-current="page"' : ""}>${label} ${arrowRight}</a>`).join("")}
-  <a href="${user ? (user.role === "admin" ? "/admin" : "/account") : "/login"}">${user ? "My account" : "Sign in"} ${arrowRight}</a>
   <a class="btn" href="/book">Book Appointment ${arrowRight}</a>
 </div>`;
 
@@ -86,7 +82,6 @@ export const footer = () => `
       <div class="legal">
         <a href="/privacy">Privacy</a>
         <a href="/faq">FAQ</a>
-        <a href="/admin">Staff login</a>
       </div>
     </div>
   </div>
@@ -101,7 +96,7 @@ export const floating = () => `
 
 const cookieBanner = () => `
 <div class="cookie-banner" id="cookie-banner" hidden>
-  <p>We use essential cookies to keep your booking and sign-in working, plus anonymous analytics. Read our <a href="/privacy">privacy policy</a>.</p>
+  <p>We use essential cookies to keep booking and the site working, plus anonymous analytics. Your booking details can be remembered on this device so you book faster — you can clear them at any time. Read our <a href="/privacy">privacy policy</a>.</p>
   <div style="display:flex;gap:8px">
     <button class="btn btn--sm" data-cookie="all">Accept</button>
     <button class="btn btn--sm btn--outline-light" data-cookie="essential">Essential only</button>
@@ -154,7 +149,7 @@ ${headerExtra}
 </head>
 <body class="${bodyClass}">
 <a class="skip-link" href="#main">Skip to content</a>
-${header(path, user)}
+${header(path)}
 <main id="main">
 ${body}
 </main>

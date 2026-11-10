@@ -8,7 +8,7 @@ import {
   availableSlots, appointmentsOn, pendingAppointments, getServicesFull, createService,
   updateService, deleteService, getCategories, addCategory, renameCategory, deleteCategory,
   imageSlots, setImageSlot, saveMedia, galleryItems, addGalleryItem, deleteGalleryItem,
-  siteStatus, appointmentsBetween,
+  siteStatus, appointmentsBetween, saveMapLink,
 } from "./salon.js";
 import { todayISO, addDays } from "./util.js";
 
@@ -152,8 +152,16 @@ export async function handleTgApi(request, env, url) {
       const settings = await getSettings(db);
       await setBreak(db, body.break_start ?? settings.break_start, body.break_end ?? settings.break_end);
     }
-    for (const key of ["salon_name", "salon_phone", "salon_address", "salon_message", "daily_summary"]) {
-      if (body[key] !== undefined) await setSetting(db, key, body[key]);
+    for (const key of ["salon_name", "salon_phone", "salon_email", "salon_address", "salon_tagline", "salon_message", "daily_summary"]) {
+      if (body[key] !== undefined) await setSetting(db, key, String(body[key]).slice(0, 400));
+    }
+    if (body.map_link !== undefined) {
+      const input = String(body.map_link).trim();
+      if (input) {
+        const address = body.salon_address ?? (await getSettings(db)).salon_address;
+        const res = await saveMapLink(db, input, address);
+        if (!res.ok) return fail(res.error);
+      }
     }
     return json({ ok: true, settings: await getSettings(db), hours: await getHours(db) });
   }
