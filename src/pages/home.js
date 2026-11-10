@@ -1,6 +1,6 @@
 import { page, sectionHead } from "../layout.js";
 import { arrowRight, scissors, bottle, heart, calendar, check, leaf } from "../icons.js";
-import { badge, stars, serviceCard, stylistCard, testimonialCard, priceTier, galleryGrid, faqList, beforeAfter } from "../components.js";
+import { badge, stars, serviceCard, stylistCard, testimonialCard, priceTier, galleryGrid, faqList, beforeAfter, findUs } from "../components.js";
 import { esc, money } from "../util.js";
 
 const features = [
@@ -38,7 +38,7 @@ const tiers = [
   },
 ];
 
-export const homePage = ({ services, stylists, testimonials, gallery, faqs, user, settings = {} }) => {
+export const homePage = ({ services, stylists, testimonials, gallery, faqs, user, settings = {}, hours = [], location = null }) => {
   const img = (key, fallback) => esc(settings[key] || fallback);
   const featured = services.filter((s) => s.featured).slice(0, 4);
   const proofAvatars = testimonials.slice(0, 3);
@@ -246,6 +246,8 @@ export const homePage = ({ services, stylists, testimonials, gallery, faqs, user
     </div>
   </div>
 </section>
+
+${findUs({ location, hours })}
 `;
 
   return page({

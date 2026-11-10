@@ -11,7 +11,7 @@ import {
   getServicesFull, getCategories, createService, updateService, deleteService,
   addCategory, renameCategory, deleteCategory,
   imageSlots, setImageSlot, saveMedia, addGalleryItem, deleteGalleryItem, galleryItems,
-  siteStatus,
+  siteStatus, saveMapLink,
 } from "./salon.js";
 import { todayISO, addDays, longDay, timeLabel, money, minutesToDuration, DAY_NAMES } from "./util.js";
 
@@ -53,17 +53,32 @@ const menuView = (env) => ({
     [{ text: "⛔ Closed days", callback_data: "cl" }],
     [{ text: "💇 Services & prices", callback_data: "sv" }],
     [{ text: "🖼 Website images", callback_data: "im" }],
+    [{ text: "⚙️ Salon settings", callback_data: "set" }],
     [{ text: "🌐 Open web panel", web_app: { url: `${origin(env)}/tg` } }],
     [{ text: "❓ Help", callback_data: "help" }],
   ],
+});
+
+const welcomeView = (env) => ({
+  text: [
+    "👋 Welcome to LUMIÈRE!",
+    "",
+    "I'm your salon control room: appointments, working hours, services, website photos and the map on the website all live here.",
+    "",
+    "Pick a section below, or send /help to see the commands.",
+  ].join("\n"),
+  keyboard: menuView(env).keyboard,
 });
 
 const helpView = (env) => ({
   text: [
     "❓ Help",
     "",
-    "/start or /menu — this menu",
+    "/start — welcome message and this menu",
+    "/menu — this menu",
     "/today — today's appointments",
+    "/tomorrow — tomorrow's appointments",
+    "/week — the next seven days",
     "/summary — send today's schedule now",
     "",
     "Every section has a ‹ Back button. Anything you change here is live on the website at once.",
@@ -72,6 +87,29 @@ const helpView = (env) => ({
   ].join("\n"),
   keyboard: [[{ text: "🌐 Open web panel", web_app: { url: `${origin(env)}/tg` } }], back()],
 });
+
+const settingsView = async (env, db) => {
+  const s = await getSettings(db);
+  return {
+    text: [
+      "⚙️ Salon settings",
+      "",
+      `Name: ${s.salon_name}`,
+      `Address: ${s.salon_address}`,
+      `Phone: ${s.salon_phone}`,
+      `Email: ${s.salon_email || "—"}`,
+      "",
+      s.map_embed ? "📍 A map location is saved — it shows on the website." : "📍 No map location saved yet.",
+      "",
+      "Edit everything else in the web panel.",
+    ].join("\n"),
+    keyboard: [
+      [{ text: "📍 Map location", callback_data: "set:map" }],
+      [{ text: "🌐 Open web panel", web_app: { url: `${origin(env)}/tg` } }],
+      back(),
+    ],
+  };
+};
 
 const appointmentsView = async (db, kind) => {
   const today = todayISO();
@@ -373,18 +411,62 @@ const saveManual = async (env, db, chat, payload) => {
 
 /* ---------------- message + callback handling ---------------- */
 
+// "/tomorrow@MyBot arg" -> "tomorrow"; anything that is not a command -> "".
+export const parseCommand = (text) => {
+  const raw = String(text || "").trim();
+  if (!raw.startsWith("/")) return "";
+  const word = raw.split(/\s+/)[0].slice(1);
+  return word.split("@")[0].trim().toLowerCase();
+};
+
+const runCommand = async (env, db, chat, cmd) => {
+  if (cmd === "start") {
+    await clearState(db, chat);
+    return show(env, chat, null, welcomeView(env));
+  }
+  if (cmd === "menu") {
+    await clearState(db, chat);
+    return show(env, chat, null, menuView(env));
+  }
+  if (cmd === "help") {
+    await clearState(db, chat);
+    return show(env, chat, null, helpView(env));
+  }
+  if (cmd === "today" || cmd === "tomorrow" || cmd === "week") {
+    await clearState(db, chat);
+    return show(env, chat, null, await appointmentsView(db, cmd));
+  }
+  if (cmd === "summary") return sendMessage(env, chat, await summaryText(db), [back()]);
+  return null;
+};
+
 const handleText = async (env, db, chat, text) => {
+  const command = parseCommand(text);
+  if (command) {
+    const handled = await runCommand(env, db, chat, command);
+    if (handled) return handled;
+  }
+
   const state = await stateOf(db, chat);
   const step = state.step;
 
-  if (!step) {
-    const cmd = String(text || "").trim().toLowerCase();
-    if (cmd === "/today") return show(env, chat, null, await appointmentsView(db, "today"));
-    if (cmd === "/summary") return sendMessage(env, chat, await summaryText(db), [back()]);
-    return show(env, chat, null, menuView(env));
-  }
+  if (!step) return show(env, chat, null, menuView(env));
 
   const payload = state.payload;
+
+  if (step === "settings.map") {
+    const settings = await getSettings(db);
+    const res = await saveMapLink(db, text, settings.salon_address);
+    await clearState(db, chat);
+    if (!res.ok) {
+      return sendMessage(env, chat, `⚠️ ${res.error}`, [[{ text: "📍 Try another link", callback_data: "set:map" }], back()]);
+    }
+    return sendMessage(
+      env, chat,
+      "✅ Map location saved — the website shows it right away.",
+      [[{ text: "🌐 Open web panel", web_app: { url: `${origin(env)}/tg` } }], back()],
+    );
+  }
 
   if (step === "mn.name") {
     payload.name = String(text).trim().slice(0, 80);
@@ -558,6 +640,23 @@ const handleCallback = async (env, db, chat, data, messageId) => {
 
   if (head === "menu") { await clearState(db, chat); return show(env, chat, messageId, menuView(env)); }
   if (head === "help") return show(env, chat, messageId, helpView(env));
+
+  if (head === "set") {
+    if (!arg) return show(env, chat, messageId, await settingsView(env, db));
+    if (arg === "map") {
+      await setState(db, chat, "settings.map", {});
+      return show(env, chat, messageId, {
+        text: [
+          "📍 Map location",
+          "",
+          "Send me the Google Maps link for the salon.",
+          "",
+          "A share link (maps.app.goo.gl/…), a full google.com/maps URL, or the whole “Embed a map” iframe code all work.",
+        ].join("\n"),
+        keyboard: [back("set", "‹ Cancel")],
+      });
+    }
+  }
 
   if (head === "appts") {
     if (arg === "summary") {

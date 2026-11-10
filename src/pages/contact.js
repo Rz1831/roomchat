@@ -1,9 +1,16 @@
 import { page, pageHero } from "../layout.js";
 import { arrowRight, phone, mail, pin, clock, whatsapp } from "../icons.js";
+import { findUs } from "../components.js";
 import { esc, DAY_NAMES } from "../util.js";
 
-export const contactPage = ({ hours, user }) => {
+export const contactPage = ({ hours, location = null, user }) => {
   const today = new Date().getDay();
+  const salon = location || {};
+  const address = salon.address || "1428 Abbot Kinney Blvd, Los Angeles, CA 90291";
+  const phoneNumber = salon.phone || "+1 (323) 555-0184";
+  const email = salon.email || "hello@lumiere-salon.com";
+  const tel = phoneNumber.replace(/[^\d+]/g, "");
+  const wa = tel.replace(/[^\d+]/g, "").replace(/^\+/, "");
   return `
 ${pageHero({
   eyebrow: "Contact",
@@ -49,10 +56,10 @@ ${pageHero({
     <div>
       <h2 style="font-size:clamp(1.7rem,3vw,2.2rem);margin-bottom:16px">The Salon</h2>
       <ul class="contact-list">
-        <li>${pin}<div><strong>Address</strong><span>1428 Abbot Kinney Blvd<br>Los Angeles, CA 90291</span></div></li>
-        <li>${phone}<div><strong>Phone</strong><a href="tel:+13235550184">+1 (323) 555-0184</a></div></li>
-        <li>${mail}<div><strong>Email</strong><a href="mailto:hello@lumiere-salon.com">hello@lumiere-salon.com</a></div></li>
-        <li>${whatsapp}<div><strong>WhatsApp</strong><a href="https://wa.me/13235550184" target="_blank" rel="noopener noreferrer">Message the front desk</a></div></li>
+        <li>${pin}<div><strong>Address</strong><span>${esc(address)}</span></div></li>
+        <li>${phone}<div><strong>Phone</strong><a href="tel:${esc(tel)}">${esc(phoneNumber)}</a></div></li>
+        <li>${mail}<div><strong>Email</strong><a href="mailto:${esc(email)}">${esc(email)}</a></div></li>
+        <li>${whatsapp}<div><strong>WhatsApp</strong><a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener noreferrer">Message the front desk</a></div></li>
       </ul>
       <h3 style="font-family:var(--sans);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:28px 0 12px">Opening hours</h3>
       <ul class="hours-list">
@@ -62,11 +69,7 @@ ${pageHero({
     </div>
   </div>
 </section>
-<section class="section section--tight" style="padding-top:0">
-  <div class="wrap">
-    <iframe class="map" title="Map showing LUMIÈRE Hair Salon on Abbot Kinney Boulevard" src="https://www.google.com/maps?q=1428+Abbot+Kinney+Blvd,+Venice,+Los+Angeles,+CA+90291&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
-  </div>
-</section>`;
+${findUs({ location, hours })}`;
 };
 
 export const contactPageHtml = (data) =>

@@ -1,5 +1,46 @@
-import { arrowRight, star, check, clock, leafBadge } from "./icons.js";
-import { esc, money, minutesToDuration, timeLabel } from "./util.js";
+import { arrowRight, star, check, clock, leafBadge, pin, phone, mail } from "./icons.js";
+import { esc, money, minutesToDuration, timeLabel, DAY_NAMES } from "./util.js";
+import { directionsUrl } from "./salon.js";
+
+// "Find Us" block: the owner's saved map embed on the left, salon details on the
+// right. Without a saved map the column collapses and only the details show.
+export const findUs = ({ location, hours = [] } = {}) => {
+  if (!location) return "";
+  const today = new Date().getDay();
+  const tel = String(location.phone || "").replace(/[^\d+]/g, "");
+  const embed = location.embed || "";
+  const canDirections = Boolean(location.address || location.link);
+  return `
+<section class="section section--beige find-us" id="find-us">
+  <div class="wrap find-us__grid${embed ? "" : " find-us__grid--solo"}">
+    ${embed ? `
+    <div class="find-us__map" data-reveal>
+      <iframe class="map" src="${esc(embed)}" title="Map showing ${esc(location.name)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+    </div>` : ""}
+    <div class="find-us__copy" data-reveal>
+      <p class="eyebrow">Visit us</p>
+      <h2>${esc(location.name || "Find the salon")}</h2>
+      ${location.description ? `<p class="lede">${esc(location.description)}</p>` : ""}
+      <ul class="find-us__details">
+        ${location.address ? `<li>${pin}<div><strong>Address</strong><span>${esc(location.address)}</span></div></li>` : ""}
+        ${location.phone ? `<li>${phone}<div><strong>Phone</strong><a href="tel:${esc(tel)}">${esc(location.phone)}</a></div></li>` : ""}
+        ${location.email ? `<li>${mail}<div><strong>Email</strong><a href="mailto:${esc(location.email)}">${esc(location.email)}</a></div></li>` : ""}
+      </ul>
+      ${hours.length ? `
+      <div class="find-us__hours">
+        <h3>Opening hours</h3>
+        <ul class="hours-list">
+          ${hours.map((h) => `<li class="${Number(h.day) === today ? "today" : ""}"><span>${DAY_NAMES[h.day]}</span><span>${h.closed ? "Closed" : `${esc(h.open)} – ${esc(h.close)}`}</span></li>`).join("")}
+        </ul>
+      </div>` : ""}
+      <div class="find-us__actions">
+        ${canDirections ? `<a class="btn" href="${esc(directionsUrl(location))}" target="_blank" rel="noopener noreferrer">Get directions ${arrowRight}</a>` : ""}
+        ${location.phone ? `<a class="btn btn--ghost" href="tel:${esc(tel)}">Call us ${phone}</a>` : ""}
+      </div>
+    </div>
+  </div>
+</section>`;
+};
 
 export const badge = () => `
 <div class="badge" aria-hidden="true">

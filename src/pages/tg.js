@@ -55,6 +55,7 @@ textarea{resize:vertical}
 .ttile button{margin:0 8px 8px;padding:6px 10px;font-size:.72rem}
 .talert{background:#fbeedc;border-radius:10px;padding:10px 12px;font-size:.82rem;margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;align-items:center}
 .tgate{padding:40px 20px;text-align:center;color:var(--muted)}
+.tmap iframe{width:100%;aspect-ratio:4/3;border:1px solid var(--line);border-radius:12px;display:block;background:var(--beige)}
 .tgate h1{font-family:var(--serif);font-size:1.6rem;color:var(--ink);font-weight:500}
 .tg-toast{position:fixed;left:12px;right:12px;bottom:16px;background:var(--ink);color:var(--cream);padding:12px 16px;border-radius:12px;font-size:.82rem;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;z-index:60;text-align:center}
 .tg-toast.is-on{opacity:1;transform:none}

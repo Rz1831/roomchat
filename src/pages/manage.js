@@ -13,7 +13,7 @@ ${pageHero({
   eyebrow: "Your booking",
   title: `Appointment ${esc(a.ref)}`,
   lede: "Cancel or move your visit below. Free changes up to 24 hours before your appointment.",
-  crumbs: [["/account", "My account"], ["/manage", "Manage"]],
+  crumbs: [["/manage", "Manage"]],
 })}
 <section class="section">
   <div class="wrap" style="max-width:760px">

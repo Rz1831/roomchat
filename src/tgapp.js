@@ -219,14 +219,24 @@ export const TG_JS = String.raw`
     );
   }
 
+  function mapPreview(s) {
+    if (!s.map_embed) return '<p class="tmuted">No map saved yet — the website shows the address and contact details only.</p>';
+    return '<div class="tmap"><iframe src="' + esc(s.map_embed) + '" title="Map preview" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>';
+  }
+
   function renderSettings() {
     const s = state.data.settings;
     return (
       '<section class="tsection"><h2>Salon details</h2>' +
         '<form data-form="settings">' +
           '<div class="tfield"><label>Salon name</label><input name="salon_name" value="' + esc(s.salon_name) + '"></div>' +
-          '<div class="tfield"><label>Phone</label><input name="salon_phone" value="' + esc(s.salon_phone) + '"></div>' +
+          '<div class="ttwo"><div class="tfield"><label>Phone</label><input name="salon_phone" value="' + esc(s.salon_phone) + '"></div>' +
+          '<div class="tfield"><label>Email</label><input name="salon_email" type="email" value="' + esc(s.salon_email) + '"></div></div>' +
           '<div class="tfield"><label>Address</label><input name="salon_address" value="' + esc(s.salon_address) + '"></div>' +
+          '<div class="tfield"><label>Short description (next to the map)</label><textarea name="salon_tagline" rows="2">' + esc(s.salon_tagline) + "</textarea></div>" +
+          '<div class="tfield"><label>Google Maps / Google Business link</label><input name="map_link" inputmode="url" placeholder="maps.app.goo.gl/… or google.com/maps/…" value="' + esc(s.map_link) + '"></div>' +
+          '<p class="tmuted">Paste a share link, a full Maps URL, or the “Embed a map” code from Google Maps. Only Google Maps links are accepted.</p>' +
+          mapPreview(s) +
           '<div class="tfield"><label>Opening message (bar on the website)</label><textarea name="salon_message" rows="2">' + esc(s.salon_message) + "</textarea></div>" +
           '<div class="tfield"><label>Daily summary</label><select name="daily_summary">' +
             '<option value="1"' + (s.daily_summary === "1" ? " selected" : "") + ">On</option>" +
@@ -416,11 +426,12 @@ export const TG_JS = String.raw`
       if (kind === "settings") {
         await api("/api/tg/settings", { method: "PUT", body: {
           salon_name: val("salon_name"), salon_phone: val("salon_phone"),
-          salon_address: val("salon_address"), salon_message: val("salon_message"),
-          daily_summary: val("daily_summary"),
+          salon_email: val("salon_email"), salon_address: val("salon_address"),
+          salon_tagline: val("salon_tagline"), salon_message: val("salon_message"),
+          map_link: val("map_link"), daily_summary: val("daily_summary"),
         } });
         await refresh();
-        toast("Settings saved.");
+        toast("Settings saved — live on the website.");
       }
     } catch (err) { toast(err.message, true); }
   });

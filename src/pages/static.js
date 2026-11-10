@@ -42,26 +42,28 @@ ${pageHero({
 <section class="section">
   <div class="wrap">
     <article class="article article__body">
-      <p style="color:var(--muted);font-size:.85rem">Last updated: 1 November 2026</p>
+      <p style="color:var(--muted);font-size:.85rem">Last updated: 10 November 2026</p>
       <h2>What we collect</h2>
-      <p>When you book, we collect your name, email, phone number and any notes you add about your hair. When you create an account we also store a securely hashed password. When you buy a gift card we collect the recipient's name and email so we can deliver it. Our contact form stores your message and contact details.</p>
+      <p>When you book, we collect your name, email, phone number and any notes you add about your hair. When you buy a gift card we collect the recipient's name and email so we can deliver it. Our contact form stores your message and contact details. There are no client accounts and we never ask you for a password.</p>
+      <h2>Remembered on your device</h2>
+      <p>After you book, we save your name, email and phone — together with a random ID for this device — in your browser's local storage, so your next booking is quicker and we can show you your upcoming appointment. Nothing else is stored: no passwords, no payment details, no fingerprinting or hidden tracking, and we never read this data from any other site. Use “Clear my saved details” on the booking form, or clear your browser storage, to remove it at any time.</p>
       <h2>How we use it</h2>
       <ul>
         <li>To confirm, remind you about, reschedule or cancel appointments.</li>
-        <li>To keep a service history so your next visit starts informed, not from scratch.</li>
+        <li>To keep a service history so your next visit starts informed, not from scratch — and to let the salon know you have visited before.</li>
         <li>To answer messages you send us.</li>
         <li>To send the newsletter — only if you asked for it, and only until you unsubscribe.</li>
       </ul>
-      <h2>Cookies</h2>
-      <p>We use one essential cookie to keep you signed in. With your permission we also use anonymous analytics to understand which pages are useful. You can withdraw that permission at any time using the cookie banner or your browser settings. Declining analytics cookies does not affect booking or sign-in.</p>
+      <h2>Cookies and local storage</h2>
+      <p>We use essential cookies to keep the site working, plus anonymous analytics if you accept them. We also use local storage on your own device to remember your booking details, as described above. You can withdraw analytics permission at any time using the cookie banner or your browser settings. Declining analytics cookies does not affect booking.</p>
       <h2>Who we share data with</h2>
-      <p>We do not sell personal information. Booking data is stored in our own database. Email delivery and payment processing are handled by processors who see only what is needed to deliver the message or take the payment. Our map embed is provided by Google and loads only on the contact page.</p>
+      <p>We do not sell personal information. Booking data is stored in our own database. Email delivery and payment processing are handled by processors who see only what is needed to deliver the message or take the payment. Our map embed is provided by Google and loads only where a map is shown.</p>
       <h2>How long we keep it</h2>
-      <p>Appointment history is kept for three years so we can advise accurately on colour and treatments. Contact messages are deleted after two years. Newsletter subscribers remain until they unsubscribe. Account holders can ask us to delete their account and history at any time.</p>
+      <p>Appointment history is kept for three years so we can advise accurately on colour and treatments. Contact messages are deleted after two years. Newsletter subscribers remain until they unsubscribe. You can ask us to delete your booking history at any time.</p>
       <h2>Your rights</h2>
       <p>You can ask for a copy of your data, correct it, or have it deleted. Email <a class="text-link" href="mailto:hello@lumiere-salon.com">hello@lumiere-salon.com</a> and we will respond within 30 days. If you are in California, you also have the right to opt out of any sharing of personal information for advertising — we do not do this.</p>
       <h2>Security</h2>
-      <p>Passwords are stored as PBKDF2 hashes and never in plain text. Sessions expire after 30 days and can be ended by signing out. Access to the salon dashboard is limited to staff accounts.</p>
+      <p>Booking data is stored in the salon's own database and only the salon team can reach it. No passwords are stored because there are no client accounts, and the owner's management tools live inside Telegram, protected by Telegram's own sign-in.</p>
       <h2>Contact</h2>
       <p>LUMIÈRE Hair Salon, 1428 Abbot Kinney Blvd, Los Angeles, CA 90291. Email <a class="text-link" href="mailto:hello@lumiere-salon.com">hello@lumiere-salon.com</a> or call +1 (323) 555-0184.</p>
     </article>

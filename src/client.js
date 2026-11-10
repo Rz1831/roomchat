@@ -6,6 +6,26 @@ export const APP_JS = String.raw`
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   const money = (n) => "$" + Number(n || 0).toLocaleString("en-US");
+  const escHtml = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  /* ---------- this device's saved booking details (no login) ---------- */
+  const RECALL_KEY = "lumiere-client";
+  function readClient() {
+    try {
+      const raw = localStorage.getItem(RECALL_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      return data && data.id ? data : null;
+    } catch (e) { return null; }
+  }
+  function writeClient(data) {
+    try { localStorage.setItem(RECALL_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  function newDeviceId() {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
 
   function toast(message, type) {
     const stack = document.getElementById("toast-stack");
@@ -280,55 +300,6 @@ export const APP_JS = String.raw`
     });
   }
 
-  /* ---------- auth ---------- */
-  const auth = $("[data-auth]");
-  if (auth) {
-    auth.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const payload = {
-        email: auth.querySelector('[name="email"]').value,
-        password: auth.querySelector('[name="password"]').value,
-      };
-      if (auth.dataset.auth === "signup") {
-        payload.name = auth.querySelector('[name="name"]').value;
-        payload.phone = auth.querySelector('[name="phone"]') ? auth.querySelector('[name="phone"]').value : "";
-      }
-      const errBox = document.getElementById("auth-error");
-      if (errBox) errBox.hidden = true;
-      const btn = auth.querySelector("button[type=submit]");
-      busy(btn, true);
-      try {
-        await post("/api/auth/" + auth.dataset.auth, payload);
-        window.location.assign(auth.dataset.auth === "signup" ? "/account" : "/account");
-      } catch (err) {
-        if (errBox) { errBox.textContent = err.message; errBox.hidden = false; }
-        else toast(err.message, "err");
-        busy(btn, false);
-      }
-    });
-  }
-
-  /* ---------- logout / account cancel ---------- */
-  $$("[data-logout]").forEach((btn) => btn.addEventListener("click", async () => {
-    try { await post("/api/auth/logout", {}); } catch (e) {}
-    window.location.assign("/");
-  }));
-
-  $$("[data-cancel-appt]").forEach((btn) => btn.addEventListener("click", async () => {
-    if (!confirm("Cancel this appointment? Free changes are available up to 24 hours before.")) return;
-    busy(btn, true);
-    try {
-      await post("/api/me/appointments/" + btn.dataset.cancelAppt + "/cancel", {});
-      toast("Appointment cancelled.", "ok");
-      const row = btn.closest("[data-appt-row]");
-      if (row) {
-        const badge = row.querySelector(".badge-status");
-        if (badge) { badge.textContent = "cancelled"; badge.className = "badge-status badge-status--cancelled"; }
-      }
-      btn.remove();
-    } catch (err) { toast(err.message, "err"); busy(btn, false); }
-  }));
-
   /* ---------- manage appointment ---------- */
   const manage = $("[data-manage]");
   if (manage) {
@@ -420,6 +391,69 @@ export const APP_JS = String.raw`
       duration: document.getElementById("sum-duration"),
       price: document.getElementById("sum-price"),
     };
+
+    const nameInput = form.querySelector('[name="client_name"]');
+    const emailInput = form.querySelector('[name="email"]');
+    const phoneInput = form.querySelector('[name="phone"]');
+    const recall = document.getElementById("client-recall");
+
+    function showRecall() {
+      const current = readClient();
+      if (!recall || !current) return;
+      recall.hidden = false;
+      recall.innerHTML = "";
+      const text = document.createElement("span");
+      text.innerHTML = "Welcome back, <b></b>! Not you?";
+      text.querySelector("b").textContent = current.name || "friend";
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.textContent = "Clear details";
+      clear.addEventListener("click", clearClient);
+      recall.append(text, clear);
+    }
+
+    function prefill() {
+      const current = readClient();
+      if (!current) return;
+      if (nameInput && !nameInput.value) nameInput.value = current.name || "";
+      if (emailInput && !emailInput.value) emailInput.value = current.email || "";
+      if (phoneInput && !phoneInput.value) phoneInput.value = current.phone || "";
+      showRecall();
+    }
+
+    function clearClient() {
+      try { localStorage.removeItem(RECALL_KEY); } catch (e) {}
+      [nameInput, emailInput, phoneInput].forEach((input) => { if (input) input.value = ""; });
+      if (recall) { recall.hidden = true; recall.innerHTML = ""; }
+      $$("[data-my-upcoming]").forEach((el) => { el.hidden = true; el.innerHTML = ""; });
+      toast("Saved details cleared from this device.", "ok");
+    }
+
+    function renderUpcoming(appointment) {
+      const boxes = $$("[data-my-upcoming]");
+      if (!boxes.length) return;
+      boxes.forEach((box) => {
+        if (!appointment) { box.hidden = true; box.innerHTML = ""; return; }
+        box.hidden = false;
+        box.innerHTML =
+          "<h3>My upcoming appointment</h3>" +
+          "<p><strong>" + escHtml(longDate(appointment.date)) + " at " + escHtml(label12(appointment.time)) + "</strong><br>" +
+          escHtml(appointment.service_name) + " · " + escHtml(appointment.status) + " · ref " + escHtml(appointment.ref) + "</p>" +
+          '<div class="upcoming-card__actions"><a class="btn btn--sm btn--ghost" href="' + escHtml(appointment.manage_url) + '">Change or cancel</a></div>';
+      });
+    }
+
+    async function loadUpcoming() {
+      const current = readClient();
+      if (!current) return;
+      try {
+        const res = await fetch("/api/my-booking?device=" + encodeURIComponent(current.id));
+        const result = await res.json();
+        renderUpcoming(result.appointment || null);
+      } catch (e) { /* the card is a convenience only */ }
+    }
+
+    $$("[data-clear-client]").forEach((btn) => btn.addEventListener("click", clearClient));
 
     function renderSummary() {
       sums.service.textContent = state.service ? state.service.name : "Not chosen";
@@ -609,6 +643,7 @@ export const APP_JS = String.raw`
       if (!validateDetails()) { showStep(4); return; }
       const btn = document.getElementById("confirm-booking");
       busy(btn, true);
+      const deviceId = (readClient() || { id: newDeviceId() }).id;
       try {
         const result = await post("/api/book", {
           service_id: state.service.id,
@@ -620,7 +655,17 @@ export const APP_JS = String.raw`
           phone: form.querySelector('[name="phone"]').value,
           notes: form.querySelector('[name="notes"]').value,
           consent: true,
+          device_id: deviceId,
         });
+        writeClient({
+          id: deviceId,
+          name: form.querySelector('[name="client_name"]').value.trim(),
+          email: form.querySelector('[name="email"]').value.trim(),
+          phone: form.querySelector('[name="phone"]').value.trim(),
+          ref: result.ref,
+          manage_url: result.manage_url,
+        });
+        renderUpcoming({ date: state.date, time: state.time, service_name: state.service.name, status: result.status, ref: result.ref, manage_url: result.manage_url });
         form.hidden = true;
         const progress = document.getElementById("booking-progress");
         if (progress) progress.hidden = true;
@@ -645,6 +690,8 @@ export const APP_JS = String.raw`
       const btn = form.querySelector('[data-service-slug="' + data.preselect + '"]');
       if (btn) btn.click();
     }
+    prefill();
+    loadUpcoming();
     renderSummary();
   }
 
