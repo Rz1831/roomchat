@@ -7,7 +7,7 @@ import {
   getClosures, addClosure, deleteClosure, activeClosure, getBlocks, addBlock, deleteBlock,
   availableSlots, appointmentsOn, pendingAppointments, getServicesFull, createService,
   updateService, deleteService, getCategories, addCategory, renameCategory, deleteCategory,
-  imageSlots, setImageSlot, saveMedia, galleryItems, addGalleryItem, deleteGalleryItem,
+  imageSlots, setImageSlot, setImageFit, saveMedia, galleryItems, addGalleryItem, deleteGalleryItem,
   siteStatus, appointmentsBetween, saveMapLink,
 } from "./salon.js";
 import { todayISO, addDays } from "./util.js";
@@ -262,6 +262,14 @@ export async function handleTgApi(request, env, url) {
       if (!res.ok) return fail(res.error);
     }
     return json({ ok: true, url: media.url, images: await imageSlots(db), gallery: await galleryItems(db) });
+  }
+
+  // Per-slot framing: "cover" fills the frame, "contain" shows the whole photo.
+  if (route === "/image-fit" && (method === "POST" || method === "PUT")) {
+    const body = await request.json().catch(() => ({}));
+    const res = await setImageFit(db, body.key, body.fit);
+    if (!res.ok) return fail(res.error);
+    return json({ ok: true, fit: res.fit, images: await imageSlots(db) });
   }
 
   const galleryMatch = route.match(/^\/gallery\/(\d+)$/);

@@ -10,7 +10,7 @@ import {
   deleteClosure, closureLabel, saveHours, toggleDay, hoursForDay, setSlotInterval, setBreak,
   getServicesFull, getCategories, createService, updateService, deleteService,
   addCategory, renameCategory, deleteCategory,
-  imageSlots, setImageSlot, saveMedia, addGalleryItem, deleteGalleryItem, galleryItems,
+  imageSlots, setImageSlot, setImageFit, saveMedia, addGalleryItem, deleteGalleryItem, galleryItems,
   siteStatus, saveMapLink,
 } from "./salon.js";
 import { todayISO, addDays, longDay, timeLabel, money, minutesToDuration, DAY_NAMES } from "./util.js";
@@ -315,10 +315,33 @@ const imagesView = async (db) => {
   row(slots.filter((s) => !s.kind).map((s) => ({ text: s.label.slice(0, 26), callback_data: `im:${s.key}` })));
   row(slots.filter((s) => s.kind === "service").slice(0, 8).map((s) => ({ text: s.label.replace("Service — ", "💇 ").slice(0, 24), callback_data: `im:${s.key}` })));
   row(slots.filter((s) => s.kind === "stylist").map((s) => ({ text: s.label.replace("Stylist — ", "👩 ").slice(0, 24), callback_data: `im:${s.key}` })));
+  keyboard.push([{ text: "📐 Image fit", callback_data: "imf" }]);
   keyboard.push([{ text: "➕ Add a gallery photo", callback_data: "gal:a" }]);
   keyboard.push([{ text: "🗑 Manage gallery", callback_data: "gal:l" }]);
   keyboard.push(back());
   return { text: lines.join("\n"), keyboard };
+};
+
+// “Fill frame” keeps the frame and crops; “Show full image” shows the whole
+// photo on a soft background. Gallery photos are never framed, so they are not
+// listed here.
+const imageFitView = async (db) => {
+  const slots = await imageSlots(db);
+  return {
+    text: [
+      "📐 Image fit",
+      "",
+      "Tap a slot to switch between “Fill frame” (default, centred crop) and “Show full image”.",
+      "Gallery photos always keep their own shape.",
+    ].join("\n"),
+    keyboard: [
+      ...slots.map((s) => [{
+        text: `${s.fit === "contain" ? "🔲 Full" : "🖼 Fill"} · ${s.label}`.slice(0, 60),
+        callback_data: `imf:${s.key}`,
+      }]),
+      back("im", "‹ Images"),
+    ],
+  };
 };
 
 const galleryManageView = async (db) => {
@@ -917,6 +940,14 @@ const handleCallback = async (env, db, chat, data, messageId) => {
       text: "Send the new photo for this slot. I will replace it on the website immediately.",
       keyboard: [back("im", "‹ Images")],
     });
+  }
+
+  if (head === "imf") {
+    if (!arg) return show(env, chat, messageId, await imageFitView(db));
+    const slot = (await imageSlots(db)).find((s) => s.key === arg);
+    const res = slot ? await setImageFit(db, arg, slot.fit === "contain" ? "cover" : "contain") : { ok: false, error: "Unknown image slot." };
+    if (!res.ok) return sendMessage(env, chat, `⚠️ ${res.error}`, [back("imf", "‹ Image fit")]);
+    return show(env, chat, messageId, await imageFitView(db));
   }
 
   if (head === "gal") {

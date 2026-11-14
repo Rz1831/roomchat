@@ -152,6 +152,10 @@ CREATE TABLE IF NOT EXISTS media (
   filename TEXT NOT NULL DEFAULT '',
   content_type TEXT NOT NULL,
   size INTEGER NOT NULL DEFAULT 0,
+  -- Original pixel dimensions, read from the uploaded file. Used to reserve the
+  -- right space and to show gallery images at their own aspect ratio.
+  width INTEGER NOT NULL DEFAULT 0,
+  height INTEGER NOT NULL DEFAULT 0,
   data BLOB NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
