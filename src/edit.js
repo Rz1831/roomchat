@@ -22,9 +22,30 @@ export const EDIT_JS = String.raw`
     console.log("[edit]", msg);
   };
 
+  // Photos over 2000px on the long side are downscaled in the browser, keeping
+  // their own aspect ratio. Everything smaller is uploaded untouched.
+  async function prepareImage(file) {
+    try {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type) || typeof createImageBitmap !== "function") return file;
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+      if (scale === 1) { if (bitmap.close) bitmap.close(); return file; }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((done) => canvas.toBlob(done, "image/jpeg", 0.9));
+      if (bitmap.close) bitmap.close();
+      if (!blob) return file;
+      return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+    } catch (err) {
+      return file;
+    }
+  }
+
   async function upload(slot, file) {
     const form = new FormData();
-    form.append("file", file);
+    form.append("file", await prepareImage(file));
     form.append("slot", slot);
     const res = await fetch("/api/tg/media", { method: "POST", headers, body: form });
     const data = await res.json().catch(() => ({}));

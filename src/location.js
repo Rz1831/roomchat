@@ -63,7 +63,20 @@ export const placeQuery = (url) => {
   return "";
 };
 
-export const embedUrl = (query) => `${MAPS_EMBED}?q=${encodeURIComponent(query)}&output=embed`;
+// Google picks the map language from the visitor's browser, so a Persian or
+// Arabic browser sees Persian labels. Every URL we store carries hl=en, and any
+// hl the owner pasted is replaced rather than appended.
+export const withEnglish = (raw) => {
+  try {
+    const url = new URL(String(raw || "").trim());
+    url.searchParams.set("hl", "en");
+    return url.toString();
+  } catch {
+    return "";
+  }
+};
+
+export const embedUrl = (query) => `${MAPS_EMBED}?q=${encodeURIComponent(query)}&hl=en&output=embed`;
 
 const resolveShortLink = async (url) => {
   try {
@@ -96,8 +109,15 @@ export async function resolveMapLink(input, fallbackAddress = "") {
   }
 
   const query = placeQuery(target) || cleanQuery(fallbackAddress);
-  if (!query) {
-    return { ok: false, error: "Could not find a location in that link. Try the “Embed a map” code from Google Maps." };
+  if (query) return { ok: true, link: raw.slice(0, 600), embed: embedUrl(query), query };
+
+  // An “Embed a map” URL keeps the point inside pb=; rebuild it untouched apart
+  // from forcing the English language.
+  if (!parsed.short && target.searchParams.has("pb")) {
+    const embed = withEnglish(target.toString());
+    if (embed.startsWith(MAPS_EMBED)) {
+      return { ok: true, link: raw.slice(0, 600), embed, query: "" };
+    }
   }
-  return { ok: true, link: raw.slice(0, 600), embed: embedUrl(query), query };
+  return { ok: false, error: "Could not find a location in that link. Try the “Embed a map” code from Google Maps." };
 }

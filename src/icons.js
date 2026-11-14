@@ -24,5 +24,8 @@ export const facebook = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1
 export const pinterest = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.7 19.3c-.1-.8-.2-2 0-2.9l1.2-5s-.3-.6-.3-1.5c0-1.4.8-2.4 1.8-2.4.9 0 1.3.6 1.3 1.4 0 .9-.6 2.2-.9 3.4-.2 1 .5 1.9 1.6 1.9 1.9 0 3.3-2.3 3.3-5.1 0-2.1-1.5-3.6-4-3.6-3 0-4.8 2.2-4.8 4.5 0 .9.3 1.9.7 2.4.1.1.1.2.1.3l-.3 1c0 .2-.1.2-.3.1-1.3-.6-2.1-2.5-2.1-4 0-3.2 2.4-6.2 6.9-6.2 3.6 0 6.4 2.6 6.4 6 0 3.6-2.2 6.4-5.4 6.4-1.1 0-2.1-.6-2.4-1.2l-.7 2.5c-.2 1-.9 2.2-1.4 2.9A10 10 0 1 0 12 2Z"/></svg>`;
 export const leafBadge = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4c0 9-5.5 14-11 14a5 5 0 0 1-5-5C4 7.5 10.5 4 20 4Z"/><path d="M4 20c2.5-5 6-8.5 11-11"/></svg>`;
 export const closeIcon = svg('<path d="M6 6l12 12M18 6 6 18"/>');
+export const homeIcon = svg('<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6h5v6"/>');
+export const imageIcon = svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m4 17.5 4.5-4.5 3.5 3.5 3-3L20 17"/>');
+export const userIcon = svg('<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>');
 export const plusIcon = svg('<path d="M12 5v14M5 12h14"/>');
 export const chevronDown = svg('<path d="m6 9 6 6 6-6"/>');

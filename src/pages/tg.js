@@ -53,6 +53,8 @@ textarea{resize:vertical}
 .ttile img{width:100%;height:110px;object-fit:cover;display:block;background:var(--beige)}
 .ttile figcaption{font-size:.72rem;padding:6px 8px;color:var(--muted);flex:1}
 .ttile button{margin:0 8px 8px;padding:6px 10px;font-size:.72rem}
+.tfit{display:flex;flex-direction:column;gap:4px;margin:0 8px 8px;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tfit select{width:100%;padding:6px 8px;font-size:.72rem;border:1px solid var(--line);border-radius:8px;background:var(--cream);color:var(--ink)}
 .talert{background:#fbeedc;border-radius:10px;padding:10px 12px;font-size:.82rem;margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;align-items:center}
 .tgate{padding:40px 20px;text-align:center;color:var(--muted)}
 .tmap iframe{width:100%;aspect-ratio:4/3;border:1px solid var(--line);border-radius:12px;display:block;background:var(--beige)}

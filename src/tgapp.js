@@ -201,9 +201,14 @@ export const TG_JS = String.raw`
     return (
       '<section class="tsection"><h2>Website images</h2>' +
         '<p class="tmuted">Tap a tile to upload a replacement. Changes are live immediately.</p>' +
-        '<div class="tgrid">' + d.images.map((s, i) => (
+        '<div class="tgrid">' + d.images.map((s) => (
           '<figure class="ttile"><img src="' + esc(s.url) + '" alt="' + esc(s.label) + '" loading="lazy">' +
             "<figcaption>" + esc(s.label) + "</figcaption>" +
+            '<label class="tfit">Image fit' +
+              '<select data-act="fit" data-slot="' + esc(s.key) + '">' +
+                '<option value="cover"' + (s.fit === "contain" ? "" : " selected") + '>Fill frame</option>' +
+                '<option value="contain"' + (s.fit === "contain" ? " selected" : "") + '>Show full image</option>' +
+              "</select></label>" +
             '<button data-act="pick" data-slot="' + esc(s.key) + '">Replace</button></figure>'
         )).join("") + "</div>" +
       "</section>" +
@@ -341,13 +346,42 @@ export const TG_JS = String.raw`
         if (box) box.innerHTML = apptCards(data.appointments);
       } catch (err) { toast(err.message, true); }
     }
+    if (event.target.matches('[data-act="fit"]')) {
+      try {
+        await api("/api/tg/image-fit", { body: { key: event.target.dataset.slot, fit: event.target.value } });
+        await refresh();
+        toast("Image fit saved.");
+      } catch (err) { toast(err.message, true); }
+    }
   });
 
-  document.getElementById("tg-file").addEventListener("change", async (event) => {
-    const file = event.target.files && event.target.files[0];
-    event.target.value = "";
-    if (!file || !state.pending) return;
+  // Shrink only what is larger than 2000px on the long side, keeping the ratio.
+  // Photos inside that limit are uploaded byte-for-byte
+  async function prepareImage(file) {
     try {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type) || typeof createImageBitmap !== "function") return file;
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+      if (scale === 1) { if (bitmap.close) bitmap.close(); return file; }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((done) => canvas.toBlob(done, "image/jpeg", 0.9));
+      if (bitmap.close) bitmap.close();
+      if (!blob) return file;
+      return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+    } catch (err) {
+      return file;
+    }
+  }
+
+  document.getElementById("tg-file").addEventListener("change", async (event) => {
+    const chosen = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!chosen || !state.pending) return;
+    try {
+      const file = await prepareImage(chosen);
       const form = new FormData();
       form.append("file", file);
       form.append("slot", state.pending.slot);

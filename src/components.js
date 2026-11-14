@@ -1,6 +1,6 @@
 import { arrowRight, star, check, clock, leafBadge, pin, phone, mail } from "./icons.js";
 import { esc, money, minutesToDuration, timeLabel, DAY_NAMES } from "./util.js";
-import { directionsUrl } from "./salon.js";
+import { directionsUrl, imageFitClass } from "./salon.js";
 
 // "Find Us" block: the owner's saved map embed on the left, salon details on the
 // right. Without a saved map the column collapses and only the details show.
@@ -54,10 +54,10 @@ export const badge = () => `
 export const stars = (rating = 5) =>
   `<span class="stars" aria-label="${rating} out of 5 stars">${Array.from({ length: 5 }, (_, i) => star(i < rating)).join("")}</span>`;
 
-export const serviceCard = (s) => `
+export const serviceCard = (s, settings = {}) => `
 <article class="arch-card" data-reveal>
   <a class="arch-card__media" href="/services#${esc(s.slug)}" aria-label="${esc(s.name)} — view service details">
-    <img src="${esc(s.image)}" alt="${esc(s.name)} at LUMIÈRE Hair Salon" loading="lazy" width="600" height="800" data-slot="service:${s.id}">
+    <img src="${esc(s.image)}" alt="${esc(s.name)} at LUMIÈRE Hair Salon" loading="lazy" width="600" height="800" data-slot="service:${s.id}"${imageFitClass(settings, `service:${s.id}`) ? ' class="img--contain"' : ""}>
   </a>
   <h3><a href="/services#${esc(s.slug)}">${esc(s.name)}</a></h3>
   <p>${esc(s.short_description)}</p>
@@ -67,10 +67,10 @@ export const serviceCard = (s) => `
   </div>
 </article>`;
 
-export const stylistCard = (s) => `
+export const stylistCard = (s, settings = {}) => `
 <article class="stylist" data-reveal>
   <div class="stylist__media">
-    <img src="${esc(s.photo)}" alt="${esc(s.name)}, ${esc(s.role)}" loading="lazy" width="700" height="780" data-slot="stylist:${s.id}">
+    <img src="${esc(s.photo)}" alt="${esc(s.name)}, ${esc(s.role)}" loading="lazy" width="700" height="780" data-slot="stylist:${s.id}"${imageFitClass(settings, `stylist:${s.id}`) ? ' class="img--contain"' : ""}>
   </div>
   <div class="stylist__body">
     <h3>${esc(s.name)}</h3>
@@ -113,7 +113,7 @@ export const galleryGrid = (items, { limit = 0, interactive = true } = {}) => `
 <div class="masonry" id="masonry">
   ${items.slice(0, limit || items.length).map((g, i) => `
   <button class="masonry__item" type="button" data-category="${esc(g.category)}" data-lightbox="${i}" data-gallery-item="${g.id}" data-src="${esc(g.image)}" data-caption="${esc(g.caption)}" aria-label="View: ${esc(g.caption)}">
-    <img src="${esc(g.image)}" alt="${esc(g.caption)}" loading="lazy" width="900" height="${i % 3 === 0 ? 1200 : 900}" data-slot="gallery:${g.id}">
+    <img src="${esc(g.image)}" alt="${esc(g.caption)}" loading="lazy"${g.width && g.height ? ` width="${g.width}" height="${g.height}"` : ""} data-slot="gallery:${g.id}">
     <span class="masonry__cap">${esc(g.caption)}</span>
   </button>`).join("")}
 </div>`;
