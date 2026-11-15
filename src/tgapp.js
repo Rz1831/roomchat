@@ -82,7 +82,7 @@ export const TG_JS = String.raw`
         '<div class="tfield"><label for="appt-date">Day</label>' +
           '<input id="appt-date" type="date" value="' + esc(date) + '" data-act="pick-date">' +
         "</div>" +
-        '<div id="day-list">' + (date === d.today ? apptCards(d.today) : "") + "</div>" +
+        '<div id="day-list">' + (date === d.today ? apptCards(d.todayAppointments) : "") + "</div>" +
         '<h3>Awaiting confirmation</h3>' + apptCards(d.pending) +
       "</section>" +
       '<section class="tsection">' +
@@ -201,9 +201,14 @@ export const TG_JS = String.raw`
     return (
       '<section class="tsection"><h2>Website images</h2>' +
         '<p class="tmuted">Tap a tile to upload a replacement. Changes are live immediately.</p>' +
-        '<div class="tgrid">' + d.images.map((s, i) => (
+        '<div class="tgrid">' + d.images.map((s) => (
           '<figure class="ttile"><img src="' + esc(s.url) + '" alt="' + esc(s.label) + '" loading="lazy">' +
             "<figcaption>" + esc(s.label) + "</figcaption>" +
+            '<label class="tfit">Image fit' +
+              '<select data-act="fit" data-slot="' + esc(s.key) + '">' +
+                '<option value="cover"' + (s.fit === "contain" ? "" : " selected") + '>Fill frame</option>' +
+                '<option value="contain"' + (s.fit === "contain" ? " selected" : "") + '>Show full image</option>' +
+              "</select></label>" +
             '<button data-act="pick" data-slot="' + esc(s.key) + '">Replace</button></figure>'
         )).join("") + "</div>" +
       "</section>" +
@@ -219,9 +224,10 @@ export const TG_JS = String.raw`
     );
   }
 
-  function mapPreview(s) {
-    if (!s.map_embed) return '<p class="tmuted">No map saved yet — the website shows the address and contact details only.</p>';
-    return '<div class="tmap"><iframe src="' + esc(s.map_embed) + '" title="Map preview" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>';
+  function mapPreview() {
+    const src = state.data.mapEmbed;
+    if (!src) return '<p class="tmuted">No map saved yet — the website shows the address and contact details only.</p>';
+    return '<div class="tmap"><iframe src="' + esc(src) + '" title="Map preview" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>';
   }
 
   function renderSettings() {
@@ -236,7 +242,7 @@ export const TG_JS = String.raw`
           '<div class="tfield"><label>Short description (next to the map)</label><textarea name="salon_tagline" rows="2">' + esc(s.salon_tagline) + "</textarea></div>" +
           '<div class="tfield"><label>Google Maps / Google Business link</label><input name="map_link" inputmode="url" placeholder="maps.app.goo.gl/… or google.com/maps/…" value="' + esc(s.map_link) + '"></div>' +
           '<p class="tmuted">Paste a share link, a full Maps URL, or the “Embed a map” code from Google Maps. Only Google Maps links are accepted.</p>' +
-          mapPreview(s) +
+          mapPreview() +
           '<div class="tfield"><label>Opening message (bar on the website)</label><textarea name="salon_message" rows="2">' + esc(s.salon_message) + "</textarea></div>" +
           '<div class="tfield"><label>Daily summary</label><select name="daily_summary">' +
             '<option value="1"' + (s.daily_summary === "1" ? " selected" : "") + ">On</option>" +
@@ -248,11 +254,57 @@ export const TG_JS = String.raw`
     );
   }
 
+  function renderBeforeAfter() {
+    const d = state.data;
+    const items = d.beforeAfter || [];
+    return (
+      '<section class="tsection"><h2>Before & After</h2>' +
+        '<p class="tmuted">Every visible pair appears on the Home and Gallery pages as a draggable comparison slider.</p>' +
+        (items.length ? items.map((it, i) => (
+          '<div class="tcard">' +
+            '<div class="tba">' +
+              '<figure><img src="' + esc(it.before_image) + '" alt="Before photo" loading="lazy"><figcaption>Before</figcaption></figure>' +
+              '<figure><img src="' + esc(it.after_image) + '" alt="After photo" loading="lazy"><figcaption>After</figcaption></figure>' +
+            '</div>' +
+            (it.active ? "" : '<p class="tpill tpill--cancelled">hidden</p>') +
+            '<form data-form="ba" data-id="' + it.id + '">' +
+              '<div class="tfield"><label>Title</label><input name="title" value="' + esc(it.title) + '" placeholder="Copper gloss transformation"></div>' +
+              '<div class="tfield"><label>Caption</label><textarea name="caption" rows="2">' + esc(it.caption) + '</textarea></div>' +
+              '<button type="submit">Save title</button>' +
+            '</form>' +
+            '<div class="tbtns">' +
+              '<button data-act="ba-pick" data-id="' + it.id + '" data-field="before">Replace before</button>' +
+              '<button class="tghost" data-act="ba-pick" data-id="' + it.id + '" data-field="after">Replace after</button>' +
+            '</div>' +
+            '<div class="tbtns">' +
+              '<button class="tghost" data-act="ba-toggle" data-id="' + it.id + '" data-active="' + (it.active ? 0 : 1) + '">' + (it.active ? "Hide" : "Show") + '</button>' +
+              '<button class="tghost" data-act="ba-move" data-id="' + it.id + '" data-dir="up"' + (i === 0 ? " disabled" : "") + '>↑ Up</button>' +
+              '<button class="tghost" data-act="ba-move" data-id="' + it.id + '" data-dir="down"' + (i === items.length - 1 ? " disabled" : "") + '>↓ Down</button>' +
+              '<button class="tghost" data-act="ba-del" data-id="' + it.id + '">Delete</button>' +
+            '</div>' +
+          '</div>'
+        )).join("") : '<p class="tmuted">No pairs yet — add the first one below.</p>') +
+      '</section>' +
+      '<section class="tsection"><h2>Add a pair</h2>' +
+        '<form data-form="ba-new">' +
+          '<div class="ttwo">' +
+            '<div class="tfield"><label>Before photo</label><input type="file" name="before" accept="image/*" required></div>' +
+            '<div class="tfield"><label>After photo</label><input type="file" name="after" accept="image/*" required></div>' +
+          '</div>' +
+          '<div class="tfield"><label>Title (optional)</label><input name="title" placeholder="Copper gloss transformation"></div>' +
+          '<div class="tfield"><label>Caption (optional)</label><textarea name="caption" rows="2"></textarea></div>' +
+          '<button type="submit">Add pair</button>' +
+        '</form>' +
+      '</section>'
+    );
+  }
+
   const TABS = [
     ["appointments", "Appointments"],
     ["availability", "Availability"],
     ["services", "Services"],
     ["images", "Images"],
+    ["beforeafter", "Before & After"],
     ["settings", "Settings"],
   ];
 
@@ -265,7 +317,8 @@ export const TG_JS = String.raw`
       state.tab === "appointments" ? renderAppointments() :
       state.tab === "availability" ? renderAvailability() :
       state.tab === "services" ? renderServices() :
-      state.tab === "images" ? renderImages() : renderSettings();
+      state.tab === "images" ? renderImages() :
+      state.tab === "beforeafter" ? renderBeforeAfter() : renderSettings();
     const who = document.getElementById("tg-who");
     if (who && state.data.user) who.textContent = state.data.user.first_name || "Owner";
   }
@@ -329,6 +382,26 @@ export const TG_JS = String.raw`
         await refresh();
         toast("Removed.");
       }
+      if (act === "ba-pick") {
+        state.pending = { ba: btn.dataset.id, field: btn.dataset.field };
+        document.getElementById("tg-file").click();
+      }
+      if (act === "ba-toggle") {
+        await api("/api/tg/before-after/" + btn.dataset.id, { method: "PUT", body: { active: btn.dataset.active === "1" ? 1 : 0 } });
+        await refresh();
+        toast("Comparison updated.");
+      }
+      if (act === "ba-move") {
+        await api("/api/tg/before-after/" + btn.dataset.id + "/move", { body: { direction: btn.dataset.dir } });
+        await refresh();
+        toast("Order saved.");
+      }
+      if (act === "ba-del") {
+        if (!confirm("Delete this before/after pair?")) return;
+        await api("/api/tg/before-after/" + btn.dataset.id, { method: "DELETE" });
+        await refresh();
+        toast("Pair deleted.");
+      }
     } catch (err) { toast(err.message, true); }
   });
 
@@ -341,17 +414,51 @@ export const TG_JS = String.raw`
         if (box) box.innerHTML = apptCards(data.appointments);
       } catch (err) { toast(err.message, true); }
     }
+    if (event.target.matches('[data-act="fit"]')) {
+      try {
+        await api("/api/tg/image-fit", { body: { key: event.target.dataset.slot, fit: event.target.value } });
+        await refresh();
+        toast("Image fit saved.");
+      } catch (err) { toast(err.message, true); }
+    }
   });
 
-  document.getElementById("tg-file").addEventListener("change", async (event) => {
-    const file = event.target.files && event.target.files[0];
-    event.target.value = "";
-    if (!file || !state.pending) return;
+  // Shrink only what is larger than 2000px on the long side, keeping the ratio.
+  // Photos inside that limit are uploaded byte-for-byte
+  async function prepareImage(file) {
     try {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type) || typeof createImageBitmap !== "function") return file;
+      const bitmap = await createImageBitmap(file);
+      const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+      if (scale === 1) { if (bitmap.close) bitmap.close(); return file; }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((done) => canvas.toBlob(done, "image/jpeg", 0.9));
+      if (bitmap.close) bitmap.close();
+      if (!blob) return file;
+      return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" });
+    } catch (err) {
+      return file;
+    }
+  }
+
+  document.getElementById("tg-file").addEventListener("change", async (event) => {
+    const chosen = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!chosen || !state.pending) return;
+    try {
+      const file = await prepareImage(chosen);
       const form = new FormData();
       form.append("file", file);
-      form.append("slot", state.pending.slot);
-      await api("/api/tg/media", { form });
+      if (state.pending.slot) form.append("slot", state.pending.slot);
+      const media = await api("/api/tg/media", { form });
+      if (state.pending.ba) {
+        await api("/api/tg/before-after/" + state.pending.ba + "/images", {
+          body: { field: state.pending.field, url: media.url },
+        });
+      }
       state.pending = null;
       await refresh();
       toast("Image updated.");
@@ -422,6 +529,31 @@ export const TG_JS = String.raw`
         await api("/api/tg/categories", { body: { name: val("name") } });
         await refresh();
         toast("Category added.");
+      }
+      if (kind === "ba") {
+        await api("/api/tg/before-after/" + form.dataset.id, { method: "PUT", body: {
+          title: val("title"), caption: val("caption"),
+        } });
+        await refresh();
+        toast("Saved — live on the website.");
+      }
+      if (kind === "ba-new") {
+        const beforeFile = fd.get("before");
+        const afterFile = fd.get("after");
+        if (!beforeFile || !beforeFile.size || !afterFile || !afterFile.size) throw new Error("Choose both photos.");
+        const upload = async (file) => {
+          const form = new FormData();
+          form.append("file", await prepareImage(file));
+          return (await api("/api/tg/media", { form })).url;
+        };
+        const beforeUrl = await upload(beforeFile);
+        const afterUrl = await upload(afterFile);
+        await api("/api/tg/before-after", { body: {
+          before_image: beforeUrl, after_image: afterUrl,
+          title: val("title"), caption: val("caption"),
+        } });
+        await refresh();
+        toast("Pair added — live on the website.");
       }
       if (kind === "settings") {
         await api("/api/tg/settings", { method: "PUT", body: {

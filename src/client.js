@@ -61,16 +61,43 @@ export const APP_JS = String.raw`
   const toggle = document.getElementById("nav-toggle");
   const mobileNav = document.getElementById("mobile-nav");
   if (toggle && mobileNav) {
-    toggle.addEventListener("click", () => {
-      const open = toggle.getAttribute("aria-expanded") === "true";
-      toggle.setAttribute("aria-expanded", String(!open));
-      toggle.setAttribute("aria-label", open ? "Open menu" : "Close menu");
-      mobileNav.classList.toggle("is-open", !open);
+    const isOpen = () => toggle.getAttribute("aria-expanded") === "true";
+    const setOpen = (open) => {
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+      mobileNav.classList.toggle("is-open", open);
+      mobileNav.setAttribute("aria-hidden", String(!open));
+      // Lock the page behind the menu so scrolling stays inside it.
+      document.body.classList.toggle("nav-open", open);
+      if (open) {
+        const first = mobileNav.querySelector("a");
+        if (first) first.focus({ preventScroll: true });
+      }
+    };
+    toggle.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(!isOpen());
     });
-    $$("a", mobileNav).forEach((a) => a.addEventListener("click", () => {
-      toggle.setAttribute("aria-expanded", "false");
-      mobileNav.classList.remove("is-open");
-    }));
+    mobileNav.addEventListener("click", (event) => {
+      if (event.target.closest("a")) setOpen(false);
+    });
+    // Outside tap on any device, Escape, or growing past the burger breakpoint.
+    document.addEventListener("click", (event) => {
+      if (!isOpen()) return;
+      if (mobileNav.contains(event.target) || toggle.contains(event.target)) return;
+      setOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && isOpen()) {
+        setOpen(false);
+        toggle.focus({ preventScroll: true });
+      }
+    });
+    window.addEventListener("resize", () => {
+      if (window.innerWidth >= 1000 && isOpen()) setOpen(false);
+    });
+    setOpen(false);
   }
 
   /* ---------- scroll reveals ---------- */
@@ -109,6 +136,15 @@ export const APP_JS = String.raw`
     range.addEventListener("input", apply);
     apply();
   });
+  // One slider per pair: the range input is the control, so mouse, touch and the
+  // arrow keys all move the bar. These buttons page through the carousel.
+  $$("[data-ba-nav]").forEach((btn) => btn.addEventListener("click", () => {
+    const track = document.getElementById(btn.dataset.baNav);
+    if (!track) return;
+    const card = track.querySelector(".ba-slide");
+    const step = card ? card.getBoundingClientRect().width + 20 : track.clientWidth;
+    track.scrollBy({ left: Number(btn.dataset.dir || 1) * step, behavior: "smooth" });
+  }));
 
   /* ---------- gallery filter + lightbox ---------- */
   const masonry = document.getElementById("masonry");

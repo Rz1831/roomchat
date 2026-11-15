@@ -1,9 +1,8 @@
 import { page, pageHero } from "../layout.js";
 import { arrowRight } from "../icons.js";
-import { galleryGrid, beforeAfter } from "../components.js";
-import { esc } from "../util.js";
+import { galleryGrid, beforeAfterShowcase } from "../components.js";
 
-export const galleryPage = ({ gallery, user }) => `
+export const galleryPage = ({ gallery, comparisons = [], user }) => `
 ${pageHero({
   eyebrow: "Gallery",
   title: "Hair We Have Loved",
@@ -25,40 +24,26 @@ ${pageHero({
   </div>
 </section>
 
+${comparisons.length ? `
 <section class="section section--beige">
   <div class="wrap">
     <div class="section-head" style="margin-bottom:28px">
       <div class="section-head__text">
         <p class="eyebrow">See the change</p>
         <h2>Drag to Compare</h2>
-        <p class="lede" style="margin-top:12px">Two recent transformations, photographed in the same window light.</p>
+        <p class="lede" style="margin-top:12px">Recent transformations, photographed in the same window light. Each slider works with a mouse, a thumb, or the arrow keys.</p>
       </div>
     </div>
-    <div class="card-grid card-grid--2">
-      ${beforeAfter(
-        "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1000&q=80",
-        "https://images.unsplash.com/photo-1503104834685-7205e8607eb9?auto=format&fit=crop&w=1000&q=80",
-        "Before a copper gloss correction",
-        "After a copper gloss and shape cut",
-        "Copper gloss transformation",
-      )}
-      ${beforeAfter(
-        "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1000&q=80",
-        "https://images.unsplash.com/photo-1492106087820-71f1a00d2b11?auto=format&fit=crop&w=1000&q=80",
-        "Before a collarbone cut",
-        "After a blunt collarbone cut and bond treatment",
-        "Collarbone cut transformation",
-      )}
-    </div>
+    ${beforeAfterShowcase(comparisons, { id: "ba-track-gallery" })}
     <div style="text-align:center;margin-top:36px"><a class="btn" href="/book">Book Your Experience ${arrowRight}</a></div>
   </div>
-</section>
+</section>` : ""}
 
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Gallery image" hidden>
   <button class="lightbox__close" data-lb-close aria-label="Close image">✕</button>
   <button class="lightbox__nav lightbox__nav--prev" data-lb-prev aria-label="Previous image">‹</button>
   <div>
-    <img id="lightbox-img" src="" alt="">
+    <img id="lightbox-img" alt="" decoding="async">
     <p class="lightbox__cap" id="lightbox-cap"></p>
   </div>
   <button class="lightbox__nav lightbox__nav--next" data-lb-next aria-label="Next image">›</button>

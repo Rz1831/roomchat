@@ -7,8 +7,10 @@ import {
   getClosures, addClosure, deleteClosure, activeClosure, getBlocks, addBlock, deleteBlock,
   availableSlots, appointmentsOn, pendingAppointments, getServicesFull, createService,
   updateService, deleteService, getCategories, addCategory, renameCategory, deleteCategory,
-  imageSlots, setImageSlot, saveMedia, galleryItems, addGalleryItem, deleteGalleryItem,
-  siteStatus, appointmentsBetween, saveMapLink,
+  imageSlots, setImageSlot, setImageFit, saveMedia, galleryItems, addGalleryItem, deleteGalleryItem,
+  siteStatus, appointmentsBetween, saveMapLink, salonLocation,
+  beforeAfterItems, addBeforeAfterItem, updateBeforeAfterItem, setBeforeAfterImage,
+  deleteBeforeAfterItem, moveBeforeAfterItem,
 } from "./salon.js";
 import { todayISO, addDays } from "./util.js";
 
@@ -69,19 +71,24 @@ export async function handleTgApi(request, env, url) {
 
   if (route === "/bootstrap" && method === "GET") {
     const today = todayISO();
+    const location = await salonLocation(db);
     return json({
       ok: true,
+      // `today` is the date (the panel's date picker default); today's bookings
+      // have their own key so one never overwrites the other.
       today,
+      todayAppointments: await appointmentsOn(db, today),
       user: session.user,
       settings: await getSettings(db),
+      mapEmbed: location.embed,
       hours: await getHours(db),
       closures: await getClosures(db),
       categories: await getCategories(db),
       services: await getServicesFull(db),
       images: await imageSlots(db),
       gallery: await galleryItems(db),
+      beforeAfter: await beforeAfterItems(db),
       blocks: await getBlocks(db, { date: today }),
-      today: await appointmentsOn(db, today),
       pending: await pendingAppointments(db),
       status: await siteStatus(db),
     });
@@ -264,10 +271,60 @@ export async function handleTgApi(request, env, url) {
     return json({ ok: true, url: media.url, images: await imageSlots(db), gallery: await galleryItems(db) });
   }
 
+  // Per-slot framing: "cover" fills the frame, "contain" shows the whole photo.
+  if (route === "/image-fit" && (method === "POST" || method === "PUT")) {
+    const body = await request.json().catch(() => ({}));
+    const res = await setImageFit(db, body.key, body.fit);
+    if (!res.ok) return fail(res.error);
+    return json({ ok: true, fit: res.fit, images: await imageSlots(db) });
+  }
+
   const galleryMatch = route.match(/^\/gallery\/(\d+)$/);
   if (galleryMatch && method === "DELETE") {
     await deleteGalleryItem(db, galleryMatch[1]);
     return json({ ok: true, gallery: await galleryItems(db) });
+  }
+
+  /* ---------- before / after pairs ---------- */
+  if (route === "/before-after" && method === "POST") {
+    const body = await request.json().catch(() => ({}));
+    const res = await addBeforeAfterItem(db, {
+      before_image: body.before_image,
+      after_image: body.after_image,
+      title: body.title || "",
+      caption: body.caption || "",
+      category: body.category || "",
+    });
+    if (!res.ok) return fail(res.error);
+    return json({ ok: true, id: res.id, beforeAfter: await beforeAfterItems(db) });
+  }
+
+  const baMatch = route.match(/^\/before-after\/(\d+)$/);
+  if (baMatch && (method === "PUT" || method === "POST")) {
+    const body = await request.json().catch(() => ({}));
+    const res = await updateBeforeAfterItem(db, baMatch[1], body);
+    if (!res.ok) return fail(res.error);
+    return json({ ok: true, beforeAfter: await beforeAfterItems(db) });
+  }
+  if (baMatch && method === "DELETE") {
+    await deleteBeforeAfterItem(db, baMatch[1]);
+    return json({ ok: true, beforeAfter: await beforeAfterItems(db) });
+  }
+
+  const baImagesMatch = route.match(/^\/before-after\/(\d+)\/images$/);
+  if (baImagesMatch && (method === "POST" || method === "PUT")) {
+    const body = await request.json().catch(() => ({}));
+    const res = await setBeforeAfterImage(db, Number(baImagesMatch[1]), body.field, body.url);
+    if (!res.ok) return fail(res.error);
+    return json({ ok: true, beforeAfter: await beforeAfterItems(db) });
+  }
+
+  const baMoveMatch = route.match(/^\/before-after\/(\d+)\/move$/);
+  if (baMoveMatch && method === "POST") {
+    const body = await request.json().catch(() => ({}));
+    const res = await moveBeforeAfterItem(db, Number(baMoveMatch[1]), body.direction === "up" ? "up" : "down");
+    if (!res.ok) return fail(res.error);
+    return json({ ok: true, beforeAfter: await beforeAfterItems(db) });
   }
 
   if (route === "/status" && method === "GET") {

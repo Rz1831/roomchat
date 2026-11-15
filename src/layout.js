@@ -1,6 +1,24 @@
 import { STYLES } from "./styles.js";
-import { arrowRight, instagram, facebook, pinterest, whatsapp, phone as phoneIcon, mail, pin, leaf } from "./icons.js";
+import { APP_JS } from "./client.js";
+import { EDIT_JS } from "./edit.js";
+import { TG_JS } from "./tgapp.js";
+import { arrowRight, instagram, facebook, pinterest, whatsapp, phone as phoneIcon, mail, pin, leaf, homeIcon, imageIcon, userIcon, scissors, calendar } from "./icons.js";
 import { esc } from "./util.js";
+
+// Content hash per browser asset. The URL changes whenever the source changes,
+// so a cached script can never pair old behaviour with new markup (and the
+// Worker can serve these immutable).
+const hash = (text) => {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+};
+export const ASSET_VERSION = {
+  app: hash(APP_JS),
+  edit: hash(EDIT_JS),
+  tgapp: hash(TG_JS),
+};
+export const assetUrl = (name) => `/assets/${name}.js?v=${ASSET_VERSION[name] || "0"}`;
 
 const NAV = [
   ["/", "Home"],
@@ -12,6 +30,17 @@ const NAV = [
 ];
 
 const isActive = (href, path) => (href === "/" ? path === "/" : path === href || path.startsWith(href + "/"));
+
+// One Lucide-style line icon per menu entry, so the mobile menu never shows a
+// missing or unexplained glyph.
+const NAV_ICONS = {
+  "/": homeIcon,
+  "/services": scissors,
+  "/about": userIcon,
+  "/gallery": imageIcon,
+  "/book": calendar,
+  "/contact": mail,
+};
 
 export const header = (path) => `
 <header class="site-header" id="site-header">
@@ -30,9 +59,20 @@ export const header = (path) => `
     </div>
   </div>
 </header>
-<div class="mobile-nav" id="mobile-nav">
-  ${NAV.map(([href, label]) => `<a href="${href}" ${isActive(href, path) ? 'aria-current="page"' : ""}>${label} ${arrowRight}</a>`).join("")}
-  <a class="btn" href="/book">Book Appointment ${arrowRight}</a>
+<div class="mobile-nav" id="mobile-nav" aria-hidden="true">
+  <nav class="mobile-nav__list" aria-label="Mobile navigation">
+    ${NAV.map(([href, label]) => `<a class="mobile-nav__link" href="${href}" ${isActive(href, path) ? 'aria-current="page"' : ""}><span class="mobile-nav__label">${NAV_ICONS[href] || ""}<span>${label}</span></span>${arrowRight}</a>`).join("")}
+  </nav>
+  <a class="btn mobile-nav__cta" href="/book">Book Appointment ${arrowRight}</a>
+  <div class="mobile-nav__foot">
+    <a class="mobile-nav__phone" href="tel:+13235550184">${phoneIcon}<span>+1 (323) 555-0184</span></a>
+    <div class="mobile-nav__socials">
+      <a href="https://instagram.com" aria-label="LUMIÈRE on Instagram" rel="noopener noreferrer" target="_blank">${instagram}</a>
+      <a href="https://facebook.com" aria-label="LUMIÈRE on Facebook" rel="noopener noreferrer" target="_blank">${facebook}</a>
+      <a href="https://pinterest.com" aria-label="LUMIÈRE on Pinterest" rel="noopener noreferrer" target="_blank">${pinterest}</a>
+      <a href="https://wa.me/13235550184" aria-label="Message us on WhatsApp" rel="noopener noreferrer" target="_blank">${whatsapp}</a>
+    </div>
+  </div>
 </div>`;
 
 export const footer = () => `
@@ -156,8 +196,8 @@ ${body}
 ${footer()}
 ${floating()}
 ${cookieBanner()}
-${(Array.isArray(script) ? script : [script]).map((s) => `<script src="/assets/${s}.js" defer></script>`).join("")}
-${edit ? '<script src="/assets/edit.js" defer></script>' : ""}
+${(Array.isArray(script) ? script : [script]).map((s) => `<script src="${assetUrl(s)}" defer></script>`).join("")}
+${edit ? `<script src="${assetUrl("edit")}" defer></script>` : ""}
 </body>
 </html>`;
 };

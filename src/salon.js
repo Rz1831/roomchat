@@ -2,12 +2,12 @@
 // services/categories and image slots. Used by the public site, the JSON API,
 // the Telegram bot and the Telegram Mini App so every surface sees one truth.
 import {
-  all, one, run, getHours, getStylists, getServices, getGallery,
+  all, one, run, getHours, getStylists, getServices,
 } from "./db.js";
 import {
   todayISO, parseISO, addDays, timeToMinutes, minutesToTime, randomToken, DAY_NAMES,
 } from "./util.js";
-import { resolveMapLink } from "./location.js";
+import { resolveMapLink, withEnglish } from "./location.js";
 
 /* ---------------- settings ---------------- */
 
@@ -47,6 +47,31 @@ export const ensureSalon = async (db) => {
       try {
         await run(db, "CREATE INDEX IF NOT EXISTS idx_appt_device ON appointments(device_id)");
       } catch { /* table not created yet */ }
+      // Media rows created before uploads recorded their dimensions.
+      try {
+        await run(db, "ALTER TABLE media ADD COLUMN width INTEGER NOT NULL DEFAULT 0");
+      } catch { /* column already exists */ }
+      try {
+        await run(db, "ALTER TABLE media ADD COLUMN height INTEGER NOT NULL DEFAULT 0");
+      } catch { /* column already exists */ }
+      // Before/after pairs are created here too, so a deployed database keeps
+      // working without running the migration by hand.
+      try {
+        await run(db, `CREATE TABLE IF NOT EXISTS before_after_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL DEFAULT '',
+          caption TEXT NOT NULL DEFAULT '',
+          before_image TEXT NOT NULL,
+          after_image TEXT NOT NULL,
+          category TEXT NOT NULL DEFAULT '',
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )`);
+      } catch { /* table already exists */ }
+      try {
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_ba_order ON before_after_items(active, sort_order, id)");
+      } catch { /* table missing */ }
       for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
         await run(db, "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", key, value);
       }
@@ -104,15 +129,20 @@ export const salonLocation = async (db) => {
     phone: s.salon_phone || "",
     email: s.salon_email || "",
     description: s.salon_tagline || "",
-    embed: String(s.map_embed || "").startsWith("https://www.google.com/maps") ? s.map_embed : "",
+    // Older databases stored embed URLs without a language; normalise on read so
+    // every visitor gets English labels regardless of their browser.
+    embed: String(s.map_embed || "").startsWith("https://www.google.com/maps") ? withEnglish(s.map_embed) : "",
     link: s.map_link || "",
   };
 };
 
 export const directionsUrl = (location) => {
-  if (location.link && !/maps\.app\.goo\.gl/i.test(location.link)) return location.link;
+  if (location.link && !/maps\.app\.goo\.gl/i.test(location.link)) {
+    const link = withEnglish(location.link);
+    if (link) return link;
+  }
   const target = location.address || location.name || "";
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(target)}`;
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(target)}&hl=en`;
 };
 
 /* ---------------- opening hours ---------------- */
@@ -442,6 +472,46 @@ export const sniffImageType = (bytes) => {
   return "";
 };
 
+// Reads the pixel dimensions straight out of the file header (JPEG, PNG, GIF,
+// WebP). Uploads keep their own aspect ratio — we never resize or crop here.
+// Returns {width:0,height:0} when the header is not understood (e.g. AVIF).
+export const imageSize = (bytes, type) => {
+  if (!bytes || bytes.length < 24) return { width: 0, height: 0 };
+  const be16 = (o) => (bytes[o] << 8) | bytes[o + 1];
+  const be32 = (o) => ((bytes[o] << 24) | (bytes[o + 1] << 16) | (bytes[o + 2] << 8) | bytes[o + 3]) >>> 0;
+  const le16 = (o) => bytes[o] | (bytes[o + 1] << 8);
+  const le24 = (o) => bytes[o] | (bytes[o + 1] << 8) | (bytes[o + 2] << 16);
+  try {
+    if (type === "image/png") return { width: be32(16), height: be32(20) };
+    if (type === "image/gif") return { width: le16(6), height: le16(8) };
+    if (type === "image/webp") {
+      const chunk = String.fromCharCode(...bytes.slice(12, 16));
+      if (chunk === "VP8X") return { width: le24(24) + 1, height: le24(27) + 1 };
+      if (chunk === "VP8 ") return { width: le16(26) & 0x3fff, height: le16(28) & 0x3fff };
+      if (chunk === "VP8L") {
+        const bits = bytes[21] | (bytes[22] << 8) | (bytes[23] << 16) | (bytes[24] << 24);
+        return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
+      }
+      return { width: 0, height: 0 };
+    }
+    if (type === "image/jpeg") {
+      let offset = 2;
+      while (offset + 9 < bytes.length) {
+        if (bytes[offset] !== 0xff) { offset++; continue; }
+        const marker = bytes[offset + 1];
+        const length = be16(offset + 2);
+        // SOF0…SOF3, SOF5…SOF7, SOF9…SOF11, SOF13…SOF15 carry the frame size.
+        if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
+          return { width: be16(offset + 7), height: be16(offset + 5) };
+        }
+        if (length < 2) break;
+        offset += 2 + length;
+      }
+    }
+  } catch { /* unreadable header — dimensions stay unknown */ }
+  return { width: 0, height: 0 };
+};
+
 const BASE64 = /^[A-Za-z0-9+/=\s]+$/;
 
 const decodeBase64 = (text) => {
@@ -481,12 +551,13 @@ export const saveMedia = async (db, { bytes, contentType, filename }) => {
 
   const id = randomToken(10);
   const buffer = raw.byteOffset === 0 && raw.byteLength === raw.buffer.byteLength ? raw.buffer : raw.slice().buffer;
+  const { width, height } = imageSize(raw, type);
   await run(
     db,
-    "INSERT INTO media (id, filename, content_type, size, data) VALUES (?,?,?,?,?)",
-    id, String(filename || "upload").slice(0, 120), type, buffer.byteLength, buffer,
+    "INSERT INTO media (id, filename, content_type, size, width, height, data) VALUES (?,?,?,?,?,?,?)",
+    id, String(filename || "upload").slice(0, 120), type, buffer.byteLength, width, height, buffer,
   );
-  return { ok: true, id, url: `/media/${id}`, size: buffer.byteLength, contentType: type };
+  return { ok: true, id, url: `/media/${id}`, size: buffer.byteLength, width, height, contentType: type };
 };
 
 export const IMAGE_SLOT_LABELS = {
@@ -499,13 +570,32 @@ export const IMAGE_SLOT_LABELS = {
   "image.banner": "Banner / social share",
 };
 
+// Per-slot "image fit": "cover" fills the frame (default, centre focal point),
+// "contain" shows the whole photo on a soft background. Gallery images are never
+// framed, so they have no fit option.
+export const slotFitKey = (key) => `fit.${key}`;
+
+export const imageFit = (settings, key) =>
+  String((settings || {})[slotFitKey(key)] || "") === "contain" ? "contain" : "cover";
+
+export const imageFitClass = (settings, key) => (imageFit(settings, key) === "contain" ? " img--contain" : "");
+
+export const setImageFit = async (db, key, fit) => {
+  const slot = String(key || "");
+  const known = IMAGE_SLOT_LABELS[slot] || /^(service|stylist):\d+$/.test(slot);
+  if (!known) return { ok: false, error: "Unknown image slot." };
+  const value = String(fit) === "contain" ? "contain" : "cover";
+  await setSetting(db, slotFitKey(slot), value);
+  return { ok: true, fit: value };
+};
+
 export const imageSlots = async (db) => {
   const settings = await getSettings(db);
-  const slots = Object.entries(IMAGE_SLOT_LABELS).map(([key, label]) => ({ key, label, url: settings[key] || "" }));
+  const slots = Object.entries(IMAGE_SLOT_LABELS).map(([key, label]) => ({ key, label, url: settings[key] || "", fit: imageFit(settings, key) }));
   const services = await getServicesFull(db);
-  for (const s of services) slots.push({ key: `service:${s.id}`, label: `Service — ${s.name}`, url: s.image, kind: "service", id: s.id });
+  for (const s of services) slots.push({ key: `service:${s.id}`, label: `Service — ${s.name}`, url: s.image, kind: "service", id: s.id, fit: imageFit(settings, `service:${s.id}`) });
   const stylists = await all(db, "SELECT * FROM stylists ORDER BY sort_order, id");
-  for (const s of stylists) slots.push({ key: `stylist:${s.id}`, label: `Stylist — ${s.name}`, url: s.photo, kind: "stylist", id: s.id });
+  for (const s of stylists) slots.push({ key: `stylist:${s.id}`, label: `Stylist — ${s.name}`, url: s.photo, kind: "stylist", id: s.id, fit: imageFit(settings, `stylist:${s.id}`) });
   return slots;
 };
 
@@ -515,6 +605,9 @@ export const setImageSlot = async (db, key, url) => {
     await setSetting(db, clean, url);
     return { ok: true };
   }
+  // Before/after photos: "ba:<id>:before" or "ba:<id>:after".
+  const ba = clean.match(/^ba:(\d+):(before|after)$/);
+  if (ba) return setBeforeAfterImage(db, Number(ba[1]), ba[2], url);
   const [kind, rawId] = clean.split(":");
   const id = Number(rawId);
   if (!id) return { ok: false, error: "Unknown image slot." };
@@ -533,7 +626,16 @@ export const setImageSlot = async (db, key, url) => {
   return { ok: false, error: "Unknown image slot." };
 };
 
-export const galleryItems = (db) => getGallery(db);
+// Gallery images keep their own aspect ratio, so each row carries the stored
+// pixel size of its uploaded file (0 when the image is an external URL).
+export const galleryItems = (db) =>
+  all(
+    db,
+    `SELECT g.*, COALESCE(m.width, 0) AS width, COALESCE(m.height, 0) AS height
+       FROM gallery_items g
+       LEFT JOIN media m ON g.image = '/media/' || m.id
+      ORDER BY g.sort_order, g.id`,
+  );
 
 export const addGalleryItem = async (db, { image, caption = "New work", category = "Cuts" }) => {
   const sort = await one(db, "SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM gallery_items");
@@ -547,6 +649,76 @@ export const addGalleryItem = async (db, { image, caption = "New work", category
 
 export const deleteGalleryItem = async (db, id) => {
   await run(db, "DELETE FROM gallery_items WHERE id = ?", Number(id));
+  return { ok: true };
+};
+
+/* ---------------- before / after pairs ---------------- */
+
+// Each pair stores both photos plus the pixel size of each uploaded file, so the
+// comparison frame can use the photo's own ratio instead of forcing one.
+const BA_SELECT = `
+  SELECT b.*, COALESCE(mb.width, 0) AS before_width, COALESCE(mb.height, 0) AS before_height,
+         COALESCE(ma.width, 0) AS after_width, COALESCE(ma.height, 0) AS after_height
+    FROM before_after_items b
+    LEFT JOIN media mb ON b.before_image = '/media/' || mb.id
+    LEFT JOIN media ma ON b.after_image = '/media/' || ma.id`;
+
+export const beforeAfterItems = (db, { activeOnly = false } = {}) =>
+  all(db, `${BA_SELECT}${activeOnly ? " WHERE b.active = 1" : ""} ORDER BY b.sort_order, b.id`);
+
+const cleanBaText = (value, max) => String(value ?? "").trim().slice(0, max);
+
+export const addBeforeAfterItem = async (db, { title = "", caption = "", before_image, after_image, category = "" } = {}) => {
+  const before = String(before_image || "").trim();
+  const after = String(after_image || "").trim();
+  if (!before || !after) return { ok: false, error: "Both the before and after photos are needed." };
+  const next = await one(db, "SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM before_after_items");
+  const res = await run(
+    db,
+    "INSERT INTO before_after_items (title, caption, before_image, after_image, category, sort_order, active) VALUES (?,?,?,?,?,?,1)",
+    cleanBaText(title, 120), cleanBaText(caption, 300), before, after, cleanBaText(category, 40), Number(next?.next || 1),
+  );
+  return { ok: true, id: res.meta?.last_row_id || null };
+};
+
+export const updateBeforeAfterItem = async (db, id, fields = {}) => {
+  const row = await one(db, "SELECT * FROM before_after_items WHERE id = ?", Number(id));
+  if (!row) return { ok: false, error: "That comparison no longer exists." };
+  const sets = [];
+  const values = [];
+  if (fields.title !== undefined) { sets.push("title = ?"); values.push(cleanBaText(fields.title, 120)); }
+  if (fields.caption !== undefined) { sets.push("caption = ?"); values.push(cleanBaText(fields.caption, 300)); }
+  if (fields.category !== undefined) { sets.push("category = ?"); values.push(cleanBaText(fields.category, 40)); }
+  if (fields.active !== undefined) { sets.push("active = ?"); values.push(fields.active ? 1 : 0); }
+  if (!sets.length) return { ok: true };
+  await run(db, `UPDATE before_after_items SET ${sets.join(", ")} WHERE id = ?`, ...values, Number(id));
+  return { ok: true };
+};
+
+export const setBeforeAfterImage = async (db, id, field, url) => {
+  if (field !== "before" && field !== "after") return { ok: false, error: "Unknown photo slot." };
+  const row = await one(db, "SELECT id FROM before_after_items WHERE id = ?", Number(id));
+  if (!row) return { ok: false, error: "That comparison no longer exists." };
+  await run(db, `UPDATE before_after_items SET ${field}_image = ? WHERE id = ?`, String(url || ""), Number(id));
+  return { ok: true };
+};
+
+export const deleteBeforeAfterItem = async (db, id) => {
+  await run(db, "DELETE FROM before_after_items WHERE id = ?", Number(id));
+  return { ok: true };
+};
+
+// Reordering swaps the pair with its neighbour and rewrites both sort values.
+export const moveBeforeAfterItem = async (db, id, direction) => {
+  const rows = await beforeAfterItems(db);
+  const index = rows.findIndex((row) => Number(row.id) === Number(id));
+  if (index < 0) return { ok: false, error: "That comparison no longer exists." };
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (target < 0 || target >= rows.length) return { ok: true };
+  const a = rows[index];
+  const b = rows[target];
+  await run(db, "UPDATE before_after_items SET sort_order = ? WHERE id = ?", target + 1, a.id);
+  await run(db, "UPDATE before_after_items SET sort_order = ? WHERE id = ?", index + 1, b.id);
   return { ok: true };
 };
 

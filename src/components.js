@@ -1,6 +1,6 @@
 import { arrowRight, star, check, clock, leafBadge, pin, phone, mail } from "./icons.js";
 import { esc, money, minutesToDuration, timeLabel, DAY_NAMES } from "./util.js";
-import { directionsUrl } from "./salon.js";
+import { directionsUrl, imageFitClass } from "./salon.js";
 
 // "Find Us" block: the owner's saved map embed on the left, salon details on the
 // right. Without a saved map the column collapses and only the details show.
@@ -54,10 +54,10 @@ export const badge = () => `
 export const stars = (rating = 5) =>
   `<span class="stars" aria-label="${rating} out of 5 stars">${Array.from({ length: 5 }, (_, i) => star(i < rating)).join("")}</span>`;
 
-export const serviceCard = (s) => `
+export const serviceCard = (s, settings = {}) => `
 <article class="arch-card" data-reveal>
   <a class="arch-card__media" href="/services#${esc(s.slug)}" aria-label="${esc(s.name)} — view service details">
-    <img src="${esc(s.image)}" alt="${esc(s.name)} at LUMIÈRE Hair Salon" loading="lazy" width="600" height="800" data-slot="service:${s.id}">
+    <img src="${esc(s.image)}" alt="${esc(s.name)} at LUMIÈRE Hair Salon" loading="lazy" width="600" height="800" data-slot="service:${s.id}"${imageFitClass(settings, `service:${s.id}`) ? ' class="img--contain"' : ""}>
   </a>
   <h3><a href="/services#${esc(s.slug)}">${esc(s.name)}</a></h3>
   <p>${esc(s.short_description)}</p>
@@ -67,10 +67,10 @@ export const serviceCard = (s) => `
   </div>
 </article>`;
 
-export const stylistCard = (s) => `
+export const stylistCard = (s, settings = {}) => `
 <article class="stylist" data-reveal>
   <div class="stylist__media">
-    <img src="${esc(s.photo)}" alt="${esc(s.name)}, ${esc(s.role)}" loading="lazy" width="700" height="780" data-slot="stylist:${s.id}">
+    <img src="${esc(s.photo)}" alt="${esc(s.name)}, ${esc(s.role)}" loading="lazy" width="700" height="780" data-slot="stylist:${s.id}"${imageFitClass(settings, `stylist:${s.id}`) ? ' class="img--contain"' : ""}>
   </div>
   <div class="stylist__body">
     <h3>${esc(s.name)}</h3>
@@ -112,8 +112,8 @@ export const faqList = (items, { openFirst = false } = {}) => `
 export const galleryGrid = (items, { limit = 0, interactive = true } = {}) => `
 <div class="masonry" id="masonry">
   ${items.slice(0, limit || items.length).map((g, i) => `
-  <button class="masonry__item" type="button" data-category="${esc(g.category)}" data-lightbox="${i}" data-gallery-item="${g.id}" data-src="${esc(g.image)}" data-caption="${esc(g.caption)}" aria-label="View: ${esc(g.caption)}">
-    <img src="${esc(g.image)}" alt="${esc(g.caption)}" loading="lazy" width="900" height="${i % 3 === 0 ? 1200 : 900}" data-slot="gallery:${g.id}">
+  <button class="masonry__item" type="button" data-category="${esc(g.category)}" data-lightbox="${i}" data-gallery-item="${g.id}" data-src="${esc(g.image)}" data-caption="${esc(g.caption)}" aria-label="View: ${esc(g.caption)}"${Number(g.width) > 0 && Number(g.height) > 0 ? ` style="aspect-ratio:${Number(g.width)} / ${Number(g.height)}"` : ""}>
+    <img src="${esc(g.image)}" alt="${esc(g.caption)}" loading="lazy"${g.width && g.height ? ` width="${g.width}" height="${g.height}"` : ""} data-slot="gallery:${g.id}">
     <span class="masonry__cap">${esc(g.caption)}</span>
   </button>`).join("")}
 </div>`;
@@ -131,15 +131,50 @@ export const postCard = (p) => `
   </div>
 </article>`;
 
-export const beforeAfter = (before, after, beforeAlt, afterAlt, label) => `
-<div class="ba" data-ba>
-  <img src="${esc(before)}" alt="${esc(beforeAlt)}" loading="lazy" width="900" height="700">
-  <img class="ba__after" src="${esc(after)}" alt="${esc(afterAlt)}" loading="lazy" width="900" height="700">
+// The comparison frame takes the before photo's own ratio, so neither photo is
+// ever stretched and the two sides line up exactly.
+const frameRatio = (w, h) => (Number(w) > 0 && Number(h) > 0 ? `${Number(w)} / ${Number(h)}` : "");
+
+export const beforeAfter = (item) => {
+  const title = item.title || "Before and after";
+  const style = frameRatio(item.before_width, item.before_height);
+  const sizeAttrs = (w, h) => (Number(w) > 0 && Number(h) > 0 ? ` width="${Number(w)}" height="${Number(h)}"` : "");
+  return `
+<div class="ba" data-ba${style ? ` style="aspect-ratio:${style}"` : ""}>
+  <img src="${esc(item.before_image)}" alt="${esc(title)} — before" loading="lazy" data-slot="ba:${item.id}:before"${sizeAttrs(item.before_width, item.before_height)}>
+  <img class="ba__after" src="${esc(item.after_image)}" alt="${esc(title)} — after" loading="lazy" data-slot="ba:${item.id}:after"${sizeAttrs(item.after_width, item.after_height)}>
   <span class="ba__handle" aria-hidden="true"></span>
   <span class="ba__label ba__label--before">Before</span>
   <span class="ba__label ba__label--after">After</span>
-  <input class="ba__range" type="range" min="0" max="100" value="50" aria-label="${esc(label)} before and after comparison">
+  <input class="ba__range" type="range" min="0" max="100" value="50" aria-label="${esc(title)} — drag or use the arrow keys to compare before and after">
 </div>`;
+};
+
+// All active pairs: a scroll-snap carousel of sliders (one card each). The range
+// input inside every slider is the control, so mouse, touch and the arrow keys
+// all work without extra scripting.
+export const beforeAfterShowcase = (items = [], { id = "ba-track" } = {}) => {
+  if (!items.length) return "";
+  return `
+<div class="ba-carousel" data-ba-carousel>
+  <div class="ba-track${items.length === 1 ? " ba-track--single" : ""}" id="${esc(id)}">
+    ${items.map((item) => `
+    <article class="ba-slide">
+      ${beforeAfter(item)}
+      ${item.title || item.caption ? `
+      <div class="ba-slide__cap">
+        ${item.title ? `<strong>${esc(item.title)}</strong>` : ""}
+        ${item.caption ? `<span>${esc(item.caption)}</span>` : ""}
+      </div>` : ""}
+    </article>`).join("")}
+  </div>
+  ${items.length > 1 ? `
+  <div class="slider-controls">
+    <button class="slider-btn" type="button" data-ba-nav="${esc(id)}" data-dir="-1" aria-label="Previous comparison">‹</button>
+    <button class="slider-btn" type="button" data-ba-nav="${esc(id)}" data-dir="1" aria-label="Next comparison">›</button>
+  </div>` : ""}
+</div>`;
+};
 
 export const timePill = (t) => `<span class="tag">${clock} ${timeLabel(t)}</span>`;
 
