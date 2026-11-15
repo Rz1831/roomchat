@@ -18,7 +18,7 @@ PUBLIC_ORIGIN = "https://beauty-salon.rz1831.dpdns.org"
 [triggers]
 crons = ["0 15 * * *"]
 
-# ====== بلوک previews (باید حتماً وجود داشته باشد) ======
+# ====== بلوک previews (الزامی برای wrangler preview) ======
 [previews.vars]
 TELEGRAM_CHAT_ID = "5433551250"
 SALON_NAME = "LUMIÈRE Hair Salon"
