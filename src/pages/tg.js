@@ -1,3 +1,5 @@
+import { assetUrl } from "../layout.js";
+
 // Shell for the Telegram Mini App panel. The panel is its own document so it can
 // stay mobile-native feeling without dragging in the marketing site's chrome.
 const TG_STYLES = `
@@ -53,6 +55,10 @@ textarea{resize:vertical}
 .ttile img{width:100%;height:110px;object-fit:cover;display:block;background:var(--beige)}
 .ttile figcaption{font-size:.72rem;padding:6px 8px;color:var(--muted);flex:1}
 .ttile button{margin:0 8px 8px;padding:6px 10px;font-size:.72rem}
+.tba{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.tba figure{margin:0}
+.tba img{width:100%;height:auto;border-radius:10px;display:block;background:var(--beige)}
+.tba figcaption{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:4px}
 .tfit{display:flex;flex-direction:column;gap:4px;margin:0 8px 8px;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .tfit select{width:100%;padding:6px 8px;font-size:.72rem;border:1px solid var(--line);border-radius:8px;background:var(--cream);color:var(--ink)}
 .talert{background:#fbeedc;border-radius:10px;padding:10px 12px;font-size:.82rem;margin-bottom:10px;display:flex;justify-content:space-between;gap:8px;align-items:center}
@@ -84,6 +90,6 @@ export const tgPage = () => `<!doctype html>
 <nav id="tg-tabs" aria-label="Sections"></nav>
 <main id="tg-main"><p class="tmuted">Loading…</p></main>
 <input id="tg-file" type="file" accept="image/*" hidden>
-<script src="/assets/tgapp.js" defer></script>
+<script src="${assetUrl("tgapp")}" defer></script>
 </body>
 </html>`;

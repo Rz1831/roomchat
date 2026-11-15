@@ -1,6 +1,24 @@
 import { STYLES } from "./styles.js";
+import { APP_JS } from "./client.js";
+import { EDIT_JS } from "./edit.js";
+import { TG_JS } from "./tgapp.js";
 import { arrowRight, instagram, facebook, pinterest, whatsapp, phone as phoneIcon, mail, pin, leaf, homeIcon, imageIcon, userIcon, scissors, calendar } from "./icons.js";
 import { esc } from "./util.js";
+
+// Content hash per browser asset. The URL changes whenever the source changes,
+// so a cached script can never pair old behaviour with new markup (and the
+// Worker can serve these immutable).
+const hash = (text) => {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+};
+export const ASSET_VERSION = {
+  app: hash(APP_JS),
+  edit: hash(EDIT_JS),
+  tgapp: hash(TG_JS),
+};
+export const assetUrl = (name) => `/assets/${name}.js?v=${ASSET_VERSION[name] || "0"}`;
 
 const NAV = [
   ["/", "Home"],
@@ -178,8 +196,8 @@ ${body}
 ${footer()}
 ${floating()}
 ${cookieBanner()}
-${(Array.isArray(script) ? script : [script]).map((s) => `<script src="/assets/${s}.js" defer></script>`).join("")}
-${edit ? '<script src="/assets/edit.js" defer></script>' : ""}
+${(Array.isArray(script) ? script : [script]).map((s) => `<script src="${assetUrl(s)}" defer></script>`).join("")}
+${edit ? `<script src="${assetUrl("edit")}" defer></script>` : ""}
 </body>
 </html>`;
 };

@@ -112,7 +112,7 @@ export const faqList = (items, { openFirst = false } = {}) => `
 export const galleryGrid = (items, { limit = 0, interactive = true } = {}) => `
 <div class="masonry" id="masonry">
   ${items.slice(0, limit || items.length).map((g, i) => `
-  <button class="masonry__item" type="button" data-category="${esc(g.category)}" data-lightbox="${i}" data-gallery-item="${g.id}" data-src="${esc(g.image)}" data-caption="${esc(g.caption)}" aria-label="View: ${esc(g.caption)}">
+  <button class="masonry__item" type="button" data-category="${esc(g.category)}" data-lightbox="${i}" data-gallery-item="${g.id}" data-src="${esc(g.image)}" data-caption="${esc(g.caption)}" aria-label="View: ${esc(g.caption)}"${Number(g.width) > 0 && Number(g.height) > 0 ? ` style="aspect-ratio:${Number(g.width)} / ${Number(g.height)}"` : ""}>
     <img src="${esc(g.image)}" alt="${esc(g.caption)}" loading="lazy"${g.width && g.height ? ` width="${g.width}" height="${g.height}"` : ""} data-slot="gallery:${g.id}">
     <span class="masonry__cap">${esc(g.caption)}</span>
   </button>`).join("")}
@@ -131,15 +131,50 @@ export const postCard = (p) => `
   </div>
 </article>`;
 
-export const beforeAfter = (before, after, beforeAlt, afterAlt, label) => `
-<div class="ba" data-ba>
-  <img src="${esc(before)}" alt="${esc(beforeAlt)}" loading="lazy" width="900" height="700">
-  <img class="ba__after" src="${esc(after)}" alt="${esc(afterAlt)}" loading="lazy" width="900" height="700">
+// The comparison frame takes the before photo's own ratio, so neither photo is
+// ever stretched and the two sides line up exactly.
+const frameRatio = (w, h) => (Number(w) > 0 && Number(h) > 0 ? `${Number(w)} / ${Number(h)}` : "");
+
+export const beforeAfter = (item) => {
+  const title = item.title || "Before and after";
+  const style = frameRatio(item.before_width, item.before_height);
+  const sizeAttrs = (w, h) => (Number(w) > 0 && Number(h) > 0 ? ` width="${Number(w)}" height="${Number(h)}"` : "");
+  return `
+<div class="ba" data-ba${style ? ` style="aspect-ratio:${style}"` : ""}>
+  <img src="${esc(item.before_image)}" alt="${esc(title)} — before" loading="lazy" data-slot="ba:${item.id}:before"${sizeAttrs(item.before_width, item.before_height)}>
+  <img class="ba__after" src="${esc(item.after_image)}" alt="${esc(title)} — after" loading="lazy" data-slot="ba:${item.id}:after"${sizeAttrs(item.after_width, item.after_height)}>
   <span class="ba__handle" aria-hidden="true"></span>
   <span class="ba__label ba__label--before">Before</span>
   <span class="ba__label ba__label--after">After</span>
-  <input class="ba__range" type="range" min="0" max="100" value="50" aria-label="${esc(label)} before and after comparison">
+  <input class="ba__range" type="range" min="0" max="100" value="50" aria-label="${esc(title)} — drag or use the arrow keys to compare before and after">
 </div>`;
+};
+
+// All active pairs: a scroll-snap carousel of sliders (one card each). The range
+// input inside every slider is the control, so mouse, touch and the arrow keys
+// all work without extra scripting.
+export const beforeAfterShowcase = (items = [], { id = "ba-track" } = {}) => {
+  if (!items.length) return "";
+  return `
+<div class="ba-carousel" data-ba-carousel>
+  <div class="ba-track${items.length === 1 ? " ba-track--single" : ""}" id="${esc(id)}">
+    ${items.map((item) => `
+    <article class="ba-slide">
+      ${beforeAfter(item)}
+      ${item.title || item.caption ? `
+      <div class="ba-slide__cap">
+        ${item.title ? `<strong>${esc(item.title)}</strong>` : ""}
+        ${item.caption ? `<span>${esc(item.caption)}</span>` : ""}
+      </div>` : ""}
+    </article>`).join("")}
+  </div>
+  ${items.length > 1 ? `
+  <div class="slider-controls">
+    <button class="slider-btn" type="button" data-ba-nav="${esc(id)}" data-dir="-1" aria-label="Previous comparison">‹</button>
+    <button class="slider-btn" type="button" data-ba-nav="${esc(id)}" data-dir="1" aria-label="Next comparison">›</button>
+  </div>` : ""}
+</div>`;
+};
 
 export const timePill = (t) => `<span class="tag">${clock} ${timeLabel(t)}</span>`;
 

@@ -196,6 +196,21 @@ CREATE TABLE IF NOT EXISTS tg_state (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Before/after comparison pairs shown on Home and the Gallery page. Each pair
+-- keeps its own title, caption, images and order.
+CREATE TABLE IF NOT EXISTS before_after_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL DEFAULT '',
+  caption TEXT NOT NULL DEFAULT '',
+  before_image TEXT NOT NULL,
+  after_image TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT '',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_ba_order ON before_after_items(active, sort_order, id);
+
 CREATE TABLE IF NOT EXISTS email_outbox (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   to_email TEXT NOT NULL,

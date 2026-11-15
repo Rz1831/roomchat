@@ -1,6 +1,6 @@
 import { page, sectionHead } from "../layout.js";
 import { arrowRight, scissors, bottle, heart, calendar, check, leaf } from "../icons.js";
-import { badge, stars, serviceCard, stylistCard, testimonialCard, priceTier, galleryGrid, faqList, beforeAfter, findUs } from "../components.js";
+import { badge, stars, serviceCard, stylistCard, testimonialCard, priceTier, faqList, beforeAfterShowcase, findUs } from "../components.js";
 import { esc, money } from "../util.js";
 import { imageFitClass } from "../salon.js";
 
@@ -39,7 +39,7 @@ const tiers = [
   },
 ];
 
-export const homePage = ({ services, stylists, testimonials, gallery, faqs, user, settings = {}, hours = [], location = null }) => {
+export const homePage = ({ services, stylists, testimonials, gallery, faqs, user, settings = {}, hours = [], location = null, comparisons = [] }) => {
   const img = (key, fallback) => esc(settings[key] || fallback);
   const featured = services.filter((s) => s.featured).slice(0, 4);
   const proofAvatars = testimonials.slice(0, 3);
@@ -148,32 +148,18 @@ export const homePage = ({ services, stylists, testimonials, gallery, faqs, user
   </div>
 </section>
 
+${comparisons.length ? `
 <section class="section" id="results">
   <div class="wrap">
     ${sectionHead({
       eyebrow: "Before & after",
       title: "The Difference Is in the Detail",
-      lede: "Drag the handle to see the same client, same light, same hair — before and after a LUMIÈRE colour and cut.",
+      lede: "Drag the handle — or tab to it and use the arrow keys — to see the same client, same light, same hair before and after.",
       action: `<a class="link-arrow" href="/gallery">See the full gallery ${arrowRight}</a>`,
     })}
-    <div class="card-grid card-grid--2">
-      <div data-reveal>${beforeAfter(
-        "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1000&q=80",
-        "https://images.unsplash.com/photo-1503104834685-7205e8607eb9?auto=format&fit=crop&w=1000&q=80",
-        "Warm, brassy lengths before a tonal correction",
-        "The same hair after a soft copper gloss and shape cut",
-        "Copper gloss transformation",
-      )}</div>
-      <div data-reveal>${beforeAfter(
-        "https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1000&q=80",
-        "https://images.unsplash.com/photo-1492106087820-71f1a00d2b11?auto=format&fit=crop&w=1000&q=80",
-        "Fine hair with a grown-out, heavy perimeter",
-        "After a blunt collarbone cut and bond treatment",
-        "Collarbone cut transformation",
-      )}</div>
-    </div>
+    <div data-reveal>${beforeAfterShowcase(comparisons, { id: "ba-track-home" })}</div>
   </div>
-</section>
+</section>` : ""}
 
 <section class="section section--tight testimonials" id="testimonials">
   <div class="wrap">

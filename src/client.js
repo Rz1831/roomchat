@@ -136,6 +136,15 @@ export const APP_JS = String.raw`
     range.addEventListener("input", apply);
     apply();
   });
+  // One slider per pair: the range input is the control, so mouse, touch and the
+  // arrow keys all move the bar. These buttons page through the carousel.
+  $$("[data-ba-nav]").forEach((btn) => btn.addEventListener("click", () => {
+    const track = document.getElementById(btn.dataset.baNav);
+    if (!track) return;
+    const card = track.querySelector(".ba-slide");
+    const step = card ? card.getBoundingClientRect().width + 20 : track.clientWidth;
+    track.scrollBy({ left: Number(btn.dataset.dir || 1) * step, behavior: "smooth" });
+  }));
 
   /* ---------- gallery filter + lightbox ---------- */
   const masonry = document.getElementById("masonry");

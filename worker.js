@@ -1,4 +1,4 @@
-import { page } from "./src/layout.js";
+import { page, assetUrl } from "./src/layout.js";
 import { APP_JS } from "./src/client.js";
 import { handleApi } from "./src/api.js";
 import {
@@ -19,7 +19,7 @@ import { tgPage } from "./src/pages/tg.js";
 import { TG_JS } from "./src/tgapp.js";
 import { EDIT_JS } from "./src/edit.js";
 import { handleWebhook, sendDailySummary } from "./src/bot.js";
-import { ensureSalon, getSettings, siteStatus, salonLocation, toBytes, sniffImageType } from "./src/salon.js";
+import { ensureSalon, getSettings, siteStatus, salonLocation, toBytes, sniffImageType, beforeAfterItems } from "./src/salon.js";
 
 const SECURITY_HEADERS = {
   "x-content-type-options": "nosniff",
@@ -32,8 +32,18 @@ const html = (body, status = 200) =>
 
 const redirect = (location, status = 302) => new Response(null, { status, headers: { location } });
 
-const asset = (body, type = "text/javascript; charset=utf-8") =>
-  new Response(body, { headers: { "content-type": type, "cache-control": "no-store", ...SECURITY_HEADERS } });
+// Versioned asset URLs (?v=contenthash) are immutable; unversioned ones stay
+// no-store so an old URL can never be cached against new code.
+const asset = (body, request, type = "text/javascript; charset=utf-8") => {
+  const versioned = new URL(request.url).searchParams.has("v");
+  return new Response(body, {
+    headers: {
+      "content-type": type,
+      "cache-control": versioned ? "public, max-age=31536000, immutable" : "no-store",
+      ...SECURITY_HEADERS,
+    },
+  });
+};
 
 export default {
   async fetch(request, env) {
@@ -51,15 +61,15 @@ export default {
         if (out.includes('class="site-header"')) {
           const note = String(settings.salon_message || "").trim();
           if (note) out = out.replace("</header>", `</header><div class="announce" role="status">${esc(note)}</div>`);
-          if (editMode) out = out.replace("</body>", '<script src="/assets/edit.js" defer></script></body>');
+          if (editMode) out = out.replace("</body>", `<script src="${assetUrl("edit")}" defer></script></body>`);
         }
         return out;
       };
       const render = (markup, status) => html(chrome(markup), status);
 
       if (path === "/tg") return html(tgPage());
-      if (path === "/assets/tgapp.js") return asset(TG_JS);
-      if (path === "/assets/edit.js") return asset(EDIT_JS);
+      if (path === "/assets/tgapp.js") return asset(TG_JS, request);
+      if (path === "/assets/edit.js") return asset(EDIT_JS, request);
       if (path.startsWith("/media/")) {
         const media = await one(env.DB, "SELECT content_type, size, data FROM media WHERE id = ?", path.slice(7));
         if (!media) return new Response("Not found", { status: 404 });
@@ -84,7 +94,7 @@ export default {
       }
 
       if (path.startsWith("/api/")) return await handleApi(request, env);
-      if (path === "/assets/app.js") return asset(APP_JS);
+      if (path === "/assets/app.js") return asset(APP_JS, request);
       if (path === "/health") return new Response("ok", { headers: { "content-type": "text/plain" } });
       if (path === "/robots.txt") {
         return new Response("User-agent: *\nAllow: /\nSitemap: https://lumiere-salon.com/sitemap.xml\n", {
@@ -102,10 +112,11 @@ export default {
 
       switch (path) {
         case "/": {
-          const [services, stylists, testimonials, gallery, hours, location] = await Promise.all([
+          const [services, stylists, testimonials, gallery, hours, location, comparisons] = await Promise.all([
             getServices(db), getStylists(db), getTestimonials(db), getGallery(db), getHours(db), salonLocation(db),
+            beforeAfterItems(db, { activeOnly: true }),
           ]);
-          return render(homePage({ services, stylists, testimonials, gallery, faqs: getFaqs(), user, settings, hours, location }));
+          return render(homePage({ services, stylists, testimonials, gallery, faqs: getFaqs(), user, settings, hours, location, comparisons }));
         }
         case "/services": {
           const services = await getServices(db);
@@ -116,8 +127,8 @@ export default {
           return render(aboutPageWrapped({ stylists, user, settings }));
         }
         case "/gallery": {
-          const gallery = await getGallery(db);
-          return render(galleryPageHtml({ gallery, user }));
+          const [gallery, comparisons] = await Promise.all([getGallery(db), beforeAfterItems(db, { activeOnly: true })]);
+          return render(galleryPageHtml({ gallery, comparisons, user }));
         }
         case "/book": {
           const [services, stylists] = await Promise.all([getServices(db), getStylists(db)]);

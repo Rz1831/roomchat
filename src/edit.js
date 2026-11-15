@@ -55,7 +55,9 @@ export const EDIT_JS = String.raw`
 
   function enable(user) {
     document.body.classList.add("is-editing");
+    if (document.getElementById("lumiere-edit-bar")) return;
     const bar = document.createElement("div");
+    bar.id = "lumiere-edit-bar";
     bar.className = "edit-bar";
     bar.innerHTML = '<span><b>TAP-TO-EDIT</b> ' + (user && user.first_name ? user.first_name : "Owner") + " — tap any image to replace it</span>" +
       '<button type="button">Done</button>';

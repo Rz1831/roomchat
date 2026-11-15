@@ -54,6 +54,24 @@ export const ensureSalon = async (db) => {
       try {
         await run(db, "ALTER TABLE media ADD COLUMN height INTEGER NOT NULL DEFAULT 0");
       } catch { /* column already exists */ }
+      // Before/after pairs are created here too, so a deployed database keeps
+      // working without running the migration by hand.
+      try {
+        await run(db, `CREATE TABLE IF NOT EXISTS before_after_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL DEFAULT '',
+          caption TEXT NOT NULL DEFAULT '',
+          before_image TEXT NOT NULL,
+          after_image TEXT NOT NULL,
+          category TEXT NOT NULL DEFAULT '',
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )`);
+      } catch { /* table already exists */ }
+      try {
+        await run(db, "CREATE INDEX IF NOT EXISTS idx_ba_order ON before_after_items(active, sort_order, id)");
+      } catch { /* table missing */ }
       for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
         await run(db, "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", key, value);
       }
@@ -587,6 +605,9 @@ export const setImageSlot = async (db, key, url) => {
     await setSetting(db, clean, url);
     return { ok: true };
   }
+  // Before/after photos: "ba:<id>:before" or "ba:<id>:after".
+  const ba = clean.match(/^ba:(\d+):(before|after)$/);
+  if (ba) return setBeforeAfterImage(db, Number(ba[1]), ba[2], url);
   const [kind, rawId] = clean.split(":");
   const id = Number(rawId);
   if (!id) return { ok: false, error: "Unknown image slot." };
@@ -628,6 +649,76 @@ export const addGalleryItem = async (db, { image, caption = "New work", category
 
 export const deleteGalleryItem = async (db, id) => {
   await run(db, "DELETE FROM gallery_items WHERE id = ?", Number(id));
+  return { ok: true };
+};
+
+/* ---------------- before / after pairs ---------------- */
+
+// Each pair stores both photos plus the pixel size of each uploaded file, so the
+// comparison frame can use the photo's own ratio instead of forcing one.
+const BA_SELECT = `
+  SELECT b.*, COALESCE(mb.width, 0) AS before_width, COALESCE(mb.height, 0) AS before_height,
+         COALESCE(ma.width, 0) AS after_width, COALESCE(ma.height, 0) AS after_height
+    FROM before_after_items b
+    LEFT JOIN media mb ON b.before_image = '/media/' || mb.id
+    LEFT JOIN media ma ON b.after_image = '/media/' || ma.id`;
+
+export const beforeAfterItems = (db, { activeOnly = false } = {}) =>
+  all(db, `${BA_SELECT}${activeOnly ? " WHERE b.active = 1" : ""} ORDER BY b.sort_order, b.id`);
+
+const cleanBaText = (value, max) => String(value ?? "").trim().slice(0, max);
+
+export const addBeforeAfterItem = async (db, { title = "", caption = "", before_image, after_image, category = "" } = {}) => {
+  const before = String(before_image || "").trim();
+  const after = String(after_image || "").trim();
+  if (!before || !after) return { ok: false, error: "Both the before and after photos are needed." };
+  const next = await one(db, "SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM before_after_items");
+  const res = await run(
+    db,
+    "INSERT INTO before_after_items (title, caption, before_image, after_image, category, sort_order, active) VALUES (?,?,?,?,?,?,1)",
+    cleanBaText(title, 120), cleanBaText(caption, 300), before, after, cleanBaText(category, 40), Number(next?.next || 1),
+  );
+  return { ok: true, id: res.meta?.last_row_id || null };
+};
+
+export const updateBeforeAfterItem = async (db, id, fields = {}) => {
+  const row = await one(db, "SELECT * FROM before_after_items WHERE id = ?", Number(id));
+  if (!row) return { ok: false, error: "That comparison no longer exists." };
+  const sets = [];
+  const values = [];
+  if (fields.title !== undefined) { sets.push("title = ?"); values.push(cleanBaText(fields.title, 120)); }
+  if (fields.caption !== undefined) { sets.push("caption = ?"); values.push(cleanBaText(fields.caption, 300)); }
+  if (fields.category !== undefined) { sets.push("category = ?"); values.push(cleanBaText(fields.category, 40)); }
+  if (fields.active !== undefined) { sets.push("active = ?"); values.push(fields.active ? 1 : 0); }
+  if (!sets.length) return { ok: true };
+  await run(db, `UPDATE before_after_items SET ${sets.join(", ")} WHERE id = ?`, ...values, Number(id));
+  return { ok: true };
+};
+
+export const setBeforeAfterImage = async (db, id, field, url) => {
+  if (field !== "before" && field !== "after") return { ok: false, error: "Unknown photo slot." };
+  const row = await one(db, "SELECT id FROM before_after_items WHERE id = ?", Number(id));
+  if (!row) return { ok: false, error: "That comparison no longer exists." };
+  await run(db, `UPDATE before_after_items SET ${field}_image = ? WHERE id = ?`, String(url || ""), Number(id));
+  return { ok: true };
+};
+
+export const deleteBeforeAfterItem = async (db, id) => {
+  await run(db, "DELETE FROM before_after_items WHERE id = ?", Number(id));
+  return { ok: true };
+};
+
+// Reordering swaps the pair with its neighbour and rewrites both sort values.
+export const moveBeforeAfterItem = async (db, id, direction) => {
+  const rows = await beforeAfterItems(db);
+  const index = rows.findIndex((row) => Number(row.id) === Number(id));
+  if (index < 0) return { ok: false, error: "That comparison no longer exists." };
+  const target = direction === "up" ? index - 1 : index + 1;
+  if (target < 0 || target >= rows.length) return { ok: true };
+  const a = rows[index];
+  const b = rows[target];
+  await run(db, "UPDATE before_after_items SET sort_order = ? WHERE id = ?", target + 1, a.id);
+  await run(db, "UPDATE before_after_items SET sort_order = ? WHERE id = ?", index + 1, b.id);
   return { ok: true };
 };
 

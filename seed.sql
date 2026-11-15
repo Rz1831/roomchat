@@ -69,3 +69,7 @@ INSERT OR IGNORE INTO newsletter_subscribers (email, created_at) VALUES
 INSERT OR IGNORE INTO contact_messages (name, email, phone, message, status, created_at) VALUES
 ('Elena Rossi', 'elena.r@example.com', '+1 (310) 555-0142', 'Do you offer group bridal bookings for four people? Looking for a Saturday in May.', 'new', datetime('now', '-1 day')),
 ('Tom Becker', 'tom.b@example.com', NULL, 'I bought a gift card last month and cannot find the code email. Can you resend it?', 'read', datetime('now', '-4 day'));
+
+-- The two demo comparison photos become the first editable pair.
+INSERT OR IGNORE INTO before_after_items (id, title, caption, before_image, after_image, category, sort_order, active) VALUES
+(1, 'Copper gloss transformation', 'Warm, brassy lengths before a tonal correction — the same hair after a soft copper gloss and shape cut.', 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=1000&q=80', 'https://images.unsplash.com/photo-1503104834685-7205e8607eb9?auto=format&fit=crop&w=1000&q=80', 'Color', 1, 1);

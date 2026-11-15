@@ -12,6 +12,8 @@ import {
   addCategory, renameCategory, deleteCategory,
   imageSlots, setImageSlot, setImageFit, saveMedia, addGalleryItem, deleteGalleryItem, galleryItems,
   siteStatus, saveMapLink,
+  beforeAfterItems, addBeforeAfterItem, updateBeforeAfterItem, setBeforeAfterImage,
+  deleteBeforeAfterItem, moveBeforeAfterItem,
 } from "./salon.js";
 import { todayISO, addDays, longDay, timeLabel, money, minutesToDuration, DAY_NAMES } from "./util.js";
 
@@ -53,6 +55,7 @@ const menuView = (env) => ({
     [{ text: "⛔ Closed days", callback_data: "cl" }],
     [{ text: "💇 Services & prices", callback_data: "sv" }],
     [{ text: "🖼 Website images", callback_data: "im" }],
+    [{ text: "↔️ Before & After", callback_data: "ba" }],
     [{ text: "⚙️ Salon settings", callback_data: "set" }],
     [{ text: "🌐 Open web panel", web_app: { url: `${origin(env)}/tg` } }],
     [{ text: "❓ Help", callback_data: "help" }],
@@ -355,6 +358,51 @@ const galleryManageView = async (db) => {
   };
 };
 
+// One card per comparison pair: replace either photo, retitle, reorder,
+// hide/show or delete. The website reads the same rows.
+const beforeAfterView = async (db) => {
+  const items = await beforeAfterItems(db);
+  const buttons = [];
+  for (const it of items) {
+    const label = (it.title || `Pair ${it.id}`).slice(0, 22);
+    buttons.push([
+      { text: `✏️ Before · ${label}`.slice(0, 40), callback_data: `ba:b:${it.id}` },
+      { text: "🖼 After", callback_data: `ba:a:${it.id}` },
+    ]);
+    buttons.push([
+      { text: "📝 Caption", callback_data: `ba:c:${it.id}` },
+      { text: it.active ? "🙈 Hide" : "👁 Show", callback_data: `ba:t:${it.id}` },
+      { text: "🗑 Delete", callback_data: `ba:x:${it.id}` },
+    ]);
+    buttons.push([
+      { text: "↑ Move up", callback_data: `ba:u:${it.id}` },
+      { text: "↓ Move down", callback_data: `ba:d:${it.id}` },
+    ]);
+  }
+  buttons.push([{ text: "➕ Add a pair", callback_data: "ba:add" }]);
+  buttons.push(back());
+  return {
+    text: [
+      "↔️ Before & After",
+      "",
+      items.length
+        ? `${items.length} pair(s). Each visible pair is a draggable comparison slider on the Home and Gallery pages.`
+        : "No pairs yet — tap “Add a pair”.",
+      "",
+      "Send photos as images (not files), then set an optional caption.",
+    ].join("\n"),
+    keyboard: buttons,
+  };
+};
+
+const baStartAdd = async (env, db, chat, messageId) => {
+  await setState(db, chat, "ba.add.before", {});
+  return show(env, chat, messageId, {
+    text: "➕ New comparison\n\nSend the BEFORE photo.",
+    keyboard: [back("ba", "‹ Cancel")],
+  });
+};
+
 /* ---------------- helpers ---------------- */
 
 const show = async (env, chat, messageId, view) => {
@@ -605,6 +653,29 @@ const handleText = async (env, db, chat, text) => {
     return sendMessage(env, chat, "Send a photo for this service, or tap Skip.", [[{ text: "Skip", callback_data: "sv:skip" }]]);
   }
 
+  if (step === "ba.add.caption" || step === "ba.caption") {
+    const raw = String(text).trim();
+    const parts = raw.split("|");
+    const title = parts.length > 1 ? parts[0].trim() : "";
+    const caption = (parts.length > 1 ? parts.slice(1).join("|") : raw).trim();
+    if (step === "ba.add.caption") {
+      await clearState(db, chat);
+      const res = await addBeforeAfterItem(db, {
+        before_image: payload.before, after_image: payload.after,
+        title, caption: caption || "Before and after",
+      });
+      if (!res.ok) return sendMessage(env, chat, `⚠️ ${res.error}`, [back("ba", "‹ Before & After")]);
+      return show(env, chat, null, await beforeAfterView(db));
+    }
+    await updateBeforeAfterItem(db, payload.id, title ? { title, caption } : { caption });
+    await clearState(db, chat);
+    return show(env, chat, null, await beforeAfterView(db));
+  }
+
+  if (step === "ba.add.before" || step === "ba.add.after" || step === "ba.before" || step === "ba.after") {
+    return sendMessage(env, chat, "Please send it as a photo (not a file), or tap Back.", [back("ba", "‹ Before & After")]);
+  }
+
   if (step === "image.slot" || step === "gallery.add" || step === "service.photo") {
     return sendMessage(env, chat, "Please send it as a photo (not a file), or tap Back.", [back("im", "‹ Images")]);
   }
@@ -640,6 +711,23 @@ const handlePhoto = async (env, db, chat, message) => {
   const media = await saveMedia(db, { bytes: file.bytes, contentType: file.contentType, filename: "telegram-photo" });
   if (!media.ok) return sendMessage(env, chat, `❌ ${media.error}`);
 
+  if (state.step === "ba.add.before" || state.step === "ba.add.after") {
+    if (state.step === "ba.add.before") {
+      await setState(db, chat, "ba.add.after", { before: media.url });
+      return sendMessage(env, chat, "✅ Before photo saved.\n\nNow send the AFTER photo.", [back("ba", "‹ Cancel")]);
+    }
+    await setState(db, chat, "ba.add.caption", { before: state.payload.before, after: media.url });
+    return sendMessage(
+      env, chat,
+      "✅ After photo saved.\n\nSend an optional title/caption — “Title | Caption” sets both — or tap Skip.",
+      [[{ text: "Skip", callback_data: "ba:save" }], back("ba", "‹ Cancel")],
+    );
+  }
+  if (state.step === "ba.before" || state.step === "ba.after") {
+    await setBeforeAfterImage(db, state.payload.id, state.step === "ba.before" ? "before" : "after", media.url);
+    await clearState(db, chat);
+    return sendMessage(env, chat, "✅ Photo replaced — live on the website.", [[{ text: "↔️ Before & After", callback_data: "ba" }], back()]);
+  }
   if (state.step === "image.slot") {
     await setImageSlot(db, state.payload.key, media.url);
     await clearState(db, chat);
@@ -948,6 +1036,51 @@ const handleCallback = async (env, db, chat, data, messageId) => {
     const res = slot ? await setImageFit(db, arg, slot.fit === "contain" ? "cover" : "contain") : { ok: false, error: "Unknown image slot." };
     if (!res.ok) return sendMessage(env, chat, `⚠️ ${res.error}`, [back("imf", "‹ Image fit")]);
     return show(env, chat, messageId, await imageFitView(db));
+  }
+
+  if (head === "ba") {
+    if (!arg) return show(env, chat, messageId, await beforeAfterView(db));
+    if (arg === "add") return baStartAdd(env, db, chat, messageId);
+    if (arg === "save") {
+      const state = await stateOf(db, chat);
+      await clearState(db, chat);
+      const res = await addBeforeAfterItem(db, {
+        before_image: state.payload.before, after_image: state.payload.after,
+        caption: "Before and after",
+      });
+      if (!res.ok) return sendMessage(env, chat, `⚠️ ${res.error}`, [back("ba", "‹ Before & After")]);
+      return show(env, chat, messageId, await beforeAfterView(db));
+    }
+    const [what, rawId] = arg.split(":");
+    const id = Number(rawId);
+    if (what === "b" || what === "a") {
+      const isBefore = what === "b";
+      await setState(db, chat, isBefore ? "ba.before" : "ba.after", { id });
+      return show(env, chat, messageId, {
+        text: isBefore ? "Send the new BEFORE photo." : "Send the new AFTER photo.",
+        keyboard: [back("ba", "‹ Cancel")],
+      });
+    }
+    if (what === "c") {
+      await setState(db, chat, "ba.caption", { id });
+      return show(env, chat, messageId, {
+        text: "Send the new caption. Use “Title | Caption” to set both.",
+        keyboard: [back("ba", "‹ Cancel")],
+      });
+    }
+    if (what === "t") {
+      const item = (await beforeAfterItems(db)).find((row) => Number(row.id) === id);
+      if (item) await updateBeforeAfterItem(db, id, { active: item.active ? 0 : 1 });
+      return show(env, chat, messageId, await beforeAfterView(db));
+    }
+    if (what === "u" || what === "d") {
+      await moveBeforeAfterItem(db, id, what === "u" ? "up" : "down");
+      return show(env, chat, messageId, await beforeAfterView(db));
+    }
+    if (what === "x") {
+      await deleteBeforeAfterItem(db, id);
+      return show(env, chat, messageId, await beforeAfterView(db));
+    }
   }
 
   if (head === "gal") {

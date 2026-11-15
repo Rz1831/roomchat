@@ -2,13 +2,14 @@
   "name": "lumiere-hair-salon",
   "private": true,
   "version": "1.0.0",
-  "description": "LUMIÈRE Hair Salon — full-stack salon website on Cloudflare Workers + D1",
+  "description": "LUMI\u00c8RE Hair Salon \u2014 full-stack salon website on Cloudflare Workers + D1",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --port 3000 --ip 0.0.0.0 --local",
     "db:schema": "wrangler d1 execute lumiere-salon --local --file=./schema.sql",
     "db:seed": "wrangler d1 execute lumiere-salon --local --file=./seed.sql",
-    "db:reset": "rm -rf .wrangler/state && npm run db:schema && npm run db:seed"
+    "db:reset": "rm -rf .wrangler/state && npm run db:schema && npm run db:seed",
+    "test": "node --test tests/*.test.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.42.0"
