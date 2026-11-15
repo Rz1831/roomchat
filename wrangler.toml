@@ -21,3 +21,18 @@ PUBLIC_ORIGIN = "https://beauty-salon.rz1831.dpdns.org"
 # 15:00 UTC ≈ 08:00 in Los Angeles — the daily schedule message.
 [triggers]
 crons = ["0 15 * * *"]
+
+[previews]
+# متغیرهای محیط پیش‌نمایش (می‌توانید مقادیر تستی یا همان مقادیر اصلی را بگذارید)
+[previews.vars]
+TELEGRAM_CHAT_ID = "5433551250"
+SALON_NAME = "LUMIÈRE Hair Salon"
+SALON_EMAIL = "hello@lumiere-salon.com"
+SALON_PHONE = "+1 (323) 555-0184"
+SALON_ADDRESS = "1428 Abbot Kinney Blvd, Los Angeles, CA 90291"
+PUBLIC_ORIGIN = "https://beauty-salon.rz1831.dpdns.org"
+
+# دیتابیس D1 برای محیط پیش‌نمایش
+[[previews.d1_databases]]
+binding = "DB"
+database_id = "1b05d427-e067-4ec4-9816-84520aaa2edb"
